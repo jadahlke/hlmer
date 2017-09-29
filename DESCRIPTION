@@ -1,0 +1,13 @@
+Package: hlmer
+Type: Package
+Title: HLM7-Style Output from LME4 Analyses
+Version: 0.1.0
+Author: Jeffrey A. Dahlke (email
+Maintainer: Jeffrey A. Dahlke <dahlk068@umn.edu>
+Description: Wrapper function for the lmer() function to produce output similar to the HLM7 program. This package also contains some helper functions for use in preparing data for HLM/mixed-effect models.
+License: GPL (>= 3)
+Encoding: UTF-8
+LazyData: true
+Imports:
+    lme4, lmerTest, stats, dplyr, stringr
+RoxygenNote: 6.0.1
