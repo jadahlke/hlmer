@@ -270,10 +270,16 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
 
      if(is.null(fixed_effects)) fixed_effects <- "1"
 
-     if(!is.null(lmer_eq_lvl1)) use_preds_lvl1 <- lmer_eq_lvl1[,"lvl1"]
-     if(!is.null(lmer_eq_lvl2)) use_preds_lvl2 <- lmer_eq_lvl2[,"lvl2"]
-
-
+     if(!is.null(lmer_eq_lvl1)){
+          use_preds_lvl1 <- lmer_eq_lvl1[,"lvl1"]
+     }else{
+          use_preds_lvl1 <- NULL
+     }
+     if(!is.null(lmer_eq_lvl2)){
+          use_preds_lvl2 <- lmer_eq_lvl2[,"lvl2"]
+     }else{
+          use_preds_lvl2 <- NULL
+     }
 
      if(model_type != 0){
           usable_mods <- c(null = TRUE,
