@@ -184,7 +184,7 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
                lmer_eq_lvl2 <- rbind(lmer_eq_lvl2,
                                      cbind(orig = lmer_eq_lvl1[center_lvl1 == "cluster", "means"],
                                            lvl2 = lmer_eq_lvl1[center_lvl1 == "cluster", "means"]))
-
+               if(is.list(y_lvl1means)) names(y_lvl1means) <- paste0(names(y_lvl1means), "_means")
           }
           if(!is.null(y_lvl1means)){
                if(!is.list(y_lvl1means) & length(y_lvl1means) == 1){
@@ -220,8 +220,13 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
      }
 
      if(!is.null(y_lvl2)){
+          .lvl2 <- names(y_lvl2)
+          rownames(lmer_eq_lvl2) <- lmer_eq_lvl2[,1]
+          names(y_lvl2) <- lmer_eq_lvl2[.lvl2,2]
+
           use_as_u0pred <- lapply(y_lvl2, function(x) any(x == "Intercept"))
           y_lvl2 <- lapply(y_lvl2, function(x) x[x != "Intercept"])
+          for(i in names(y_lvl2)) if(length(y_lvl2[[i]]) == 0) y_lvl2[[i]] <- NULL
 
           if(!is.null(lmer_eq_lvl1) & !is.null(lmer_eq_lvl2)){
                if(!is.list(y_lvl2) & y_lvl2[1] == "all"){
@@ -230,10 +235,6 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
                     xlvl_ints <- apply(xlvl_ints, 1, function(x) paste(x, collapse = " * "))
                     xlvl_ints <- paste(xlvl_ints, collapse = " + ")
                }else{
-                    .lvl2 <- names(y_lvl2)
-                    rownames(lmer_eq_lvl2) <- lmer_eq_lvl2[,1]
-                    names(y_lvl2) <- lmer_eq_lvl2[.lvl2,2]
-
                     rownames(lmer_eq_lvl1) <- lmer_eq_lvl1[,1]
                     y_lvl2 <- lapply(y_lvl2, function(x){lmer_eq_lvl1[x,2]})
 
@@ -246,15 +247,15 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
           }
 
           if(any(unlist(use_as_u0pred))){
-               means_as_crit <- NULL
-               for(i in names(y_lvl2)){
+               fe_lvl2 <- means_as_crit <- NULL
+               for(i in names(use_as_u0pred)){
                     if(any(names(use_as_u0pred) == i)){
                          means_as_crit[i] <- use_as_u0pred[[i]]
                     }else{
                          means_as_crit[i] <- FALSE
                     }
-                    fe_lvl2 <- lmer_eq_lvl2[,2][lmer_eq_lvl2[,"orig"] %in% names(means_as_crit)][means_as_crit]
                }
+               fe_lvl2 <- lmer_eq_lvl2[,2][lmer_eq_lvl2[,"lvl2"] %in% names(means_as_crit)][means_as_crit]
                fe_lvl2 <- paste(fe_lvl2, collapse = " + ")
                if(is.null(fixed_effects)){
                     fixed_effects <- fe_lvl2
@@ -325,29 +326,29 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
 
      if(model_type == 0){
           if(any(!fixed_lvl1)){
-               rel <- rel_lvl1(lmer_mod = sum, cluster = cluster, x_lvl1 = random_pred_lvl1, data = data)
+               rel <- rel_lvl1(summary = sum, cluster = cluster, x_lvl1 = random_pred_lvl1, data = data)
           }else{
-               rel <- rel_lvl1(lmer_mod = sum, cluster = cluster, data = data)
+               rel <- rel_lvl1(summary = sum, cluster = cluster, data = data)
           }
           chisq <- chisq_hlmer(model = mod, summary = sum, y_lvl1 = y_lvl1,
                                x_lvl1 = use_preds_lvl1, x_lvl2 = use_preds_lvl2, cluster = cluster, data = data)
      }else{
           if(usable_mods[1]){
+               rel <- rel_lvl1(summary = sum, cluster = cluster, data = data)
                chisq <- chisq_hlmer(model = mod, summary = sum, y_lvl1 = y_lvl1, cluster = cluster, data = data)
-               rel <- rel_lvl1(lmer_mod = sum, cluster = cluster, data = data)
           }else if(usable_mods[2]){
+               rel <- rel_lvl1(summary = sum, cluster = cluster, data = data)
                chisq <- chisq_hlmer(model = mod, summary = sum, y_lvl1 = y_lvl1,
                                     x_lvl1 = NULL, x_lvl2 = use_preds_lvl2, cluster = cluster, data = data)
-               rel <- rel_lvl1(lmer_mod = sum, cluster = cluster, data = data)
           }else  if(usable_mods[3]){
-               rel <- rel_lvl1(lmer_mod = sum, cluster = cluster, x_lvl1 = random_pred_lvl1, data = data)
+               rel <- rel_lvl1(summary = sum, cluster = cluster, x_lvl1 = random_pred_lvl1, data = data)
                chisq <- chisq_hlmer(model = mod, summary = sum, y_lvl1 = y_lvl1,
                                     x_lvl1 = use_preds_lvl1, x_lvl2 = use_preds_lvl2, cluster = cluster, data = data)
           }else if(usable_mods[4]){
                if(any(!fixed_lvl1)){
-                    rel <- rel_lvl1(lmer_mod = sum, cluster = cluster, x_lvl1 = random_pred_lvl1, data = data)
+                    rel <- rel_lvl1(summary = sum, cluster = cluster, x_lvl1 = random_pred_lvl1, data = data)
                }else{
-                    rel <- rel_lvl1(lmer_mod = sum, cluster = cluster, data = data)
+                    rel <- rel_lvl1(summary = sum, cluster = cluster, data = data)
                }
                chisq <- chisq_hlmer(model = mod, summary = sum, y_lvl1 = y_lvl1,
                                     x_lvl1 = use_preds_lvl1, x_lvl2 = use_preds_lvl2, cluster = cluster, data = data)
@@ -432,6 +433,7 @@ center_within <- function(x, cluster){
 #' @param cluster Vector of cluster identifiers.
 #'
 #' @return A vector of cluster means.
+#' @export
 cluster_means <- function(x, cluster){
      x_center <- tapply(x, cluster, function(x) mean(x))
      cluster_lvls <- levels(factor(cluster))
@@ -439,14 +441,32 @@ cluster_means <- function(x, cluster){
      x
 }
 
-rel_lvl1 <- function(lmer_mod, data, x_lvl1 = NULL, cluster){
-     se_mat <- se_lvl1(sigma = lmer_mod$sigma, data = data, x_lvl1 = x_lvl1, cluster = cluster)
-     tao_vec <- attributes(lmer_mod$varcor[[1]])$stddev^2
+#' Estimate the reliability of random effects
+#'
+#' @param summary lmer summary model.
+#' @param x_lvl1 Column label(s) of \code{data} corresponding to the predictor variable(s) for level-1 observations.
+#' @param cluster Column label of \code{data} corresponding to the cluster/group identification variable.
+#' @param data Data frame, matrix, or tibble containing the data to use in the linear model.
+#'
+#' @return Vector of reliability estimates for random effects.
+#' @export
+rel_lvl1 <- function(summary, cluster, x_lvl1 = NULL, data){
+     se_mat <- se_lvl1(sigma = summary$sigma, data = data, x_lvl1 = x_lvl1, cluster = cluster)
+     tao_vec <- attributes(summary$varcor[[1]])$stddev^2
      tao_mat <- matrix(tao_vec, nrow(se_mat), ncol(se_mat), TRUE)
      apply(tao_mat / (tao_mat + se_mat^2), 2, mean)
 }
 
-se_lvl1 <- function(sigma, data, x_lvl1 = NULL, cluster){
+#' Estimate level-1 standard errors for random effects
+#'
+#' @param sigma Residual standard deviation.
+#' @param x_lvl1 Column label(s) of \code{data} corresponding to the predictor variable(s) for level-1 observations.
+#' @param cluster Column label of \code{data} corresponding to the cluster/group identification variable.
+#' @param data Data frame, matrix, or tibble containing the data to use in the linear model.
+#'
+#' @return Matrix of estimated level-1 standard errors for random effects.
+#' @export
+se_lvl1 <- function(sigma, cluster, x_lvl1 = NULL, data){
      if(!is.null(x_lvl1)){
           out <- t(simplify2array(by(data, data[,cluster], function(x){
                x1 <- cbind(`(Intercept)` = 1, as.matrix(x[,x_lvl1]))
@@ -460,7 +480,19 @@ se_lvl1 <- function(sigma, data, x_lvl1 = NULL, cluster){
 }
 
 
-chisq_hlmer <- function(model, summary = NULL, y_lvl1, x_lvl1 = NULL, x_lvl2 = NULL, cluster, data){
+#' Chi-square estimates for random-effects variances
+#'
+#' @param model Raw lmer output model.
+#' @param summary Optional lmer summary model.
+#' @param y_lvl1 Column label of \code{data} corresponding to the criterion variable for level-1 observations.
+#' @param cluster Column label of \code{data} corresponding to the cluster/group identification variable.
+#' @param x_lvl1 Column label(s) of \code{data} corresponding to the predictor variable(s) for level-1 observations.
+#' @param x_lvl2 Column label(s) of \code{data} corresponding to the predictor variable(s) for level-2 observations.
+#' @param data Data frame, matrix, or tibble containing the data to use in the linear model.
+#'
+#' @return Table of chi-square estimates for random-effects variances.
+#' @export
+chisq_hlmer <- function(model, summary = NULL, y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, data){
      mod <- model
      rm(model)
      if(is.null(summary)){
@@ -563,4 +595,3 @@ chisq_hlmer <- function(model, summary = NULL, y_lvl1, x_lvl1 = NULL, x_lvl2 = N
      ## Combine results into a table of output
      cbind(tau = attributes(smod$varcor[[1]])$stddev^2, chisq = chisq_out, df = df, `Pr(>chisq)` = pchisq(q = chisq_out, df = df, lower.tail = FALSE))
 }
-
