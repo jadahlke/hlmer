@@ -28,3 +28,6 @@ Table of chi-square estimates for random-effects variances.
 \description{
 Chi-square estimates for random-effects variances
 }
+\author{
+Jeffrey Dahlke and Jonathan Brown
+}

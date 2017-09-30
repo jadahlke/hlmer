@@ -320,7 +320,9 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
      sum <- summary(mod)
      tau <- attributes(sum$varcor[[1]])$stddev^2
      icc <- tau / (sum$sigma^2 + tau)
-     ci <- cbind(`CI (Lower)` = sum$coefficients[,1] - qnorm((1 - conf_level) / 2, lower.tail = FALSE) * sum$coefficients[,2],
+     ci <- cbind(Estimate = sum$coefficients[,1],
+                 `Std. Error` = sum$coefficients[,2],
+                 `CI (Lower)` = sum$coefficients[,1] - qnorm((1 - conf_level) / 2, lower.tail = FALSE) * sum$coefficients[,2],
                  `CI (Upper)` = sum$coefficients[,1] + qnorm((1 - conf_level) / 2, lower.tail = FALSE) * sum$coefficients[,2])
      if(nrow(ci) == 1) rownames(ci) <- "(Intercept)"
 
@@ -408,7 +410,7 @@ print.hlmer.hlmerMod <- function(x, ..., digits = 5){
      print(x$icc, digits = digits)
 
      cat("\n")
-     cat("Approximate chi-square tests for random-effects variances: \n")
+     cat("Approximate chi-square tests for the variances of random effects: \n")
      print(x$chisq_tau, digits = digits)
 }
 
@@ -490,6 +492,8 @@ se_lvl1 <- function(sigma, cluster, x_lvl1 = NULL, data){
 #' @param x_lvl2 Column label(s) of \code{data} corresponding to the predictor variable(s) for level-2 observations.
 #' @param data Data frame, matrix, or tibble containing the data to use in the linear model.
 #'
+#' @author Jeffrey Dahlke and Jonathan Brown
+#'
 #' @return Table of chi-square estimates for random-effects variances.
 #' @export
 chisq_hlmer <- function(model, summary = NULL, y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, data){
@@ -502,33 +506,31 @@ chisq_hlmer <- function(model, summary = NULL, y_lvl1, cluster, x_lvl1 = NULL, x
      }
      rm(summary)
 
-     #Store EMPIRICAL BAYES (EB) adjusted random effects
+     ## Random effects residuals and coefficients
      re_u <- ranef(mod)[[cluster]]
      re_b <- coef(mod)[[1]]
 
-     ## Now create a data frame that combines all the information we want for the chi-square formula
-     #Make a temp data frame of group IDs and sample sizes
-     n = data.frame(table(data[,cluster]))
+     ## Data frame of sample sizes
+     n <- data.frame(table(data[,cluster]))
 
-     #Obtain group means
-     ave = aggregate(unlist(data[,y_lvl1]), by = list(Var1 = unlist(data[,cluster])), FUN = "mean")
+     ## Mean criterion score by cluster
+     ave <- aggregate(unlist(data[,y_lvl1]), by = list(Var1 = unlist(data[,cluster])), FUN = "mean")
 
+     ## Matrix of level-1 standard errors
      se_mat <- se_lvl1(sigma = smod$sigma, data = data, x_lvl1 = x_lvl1, cluster = cluster)
 
-
-     #Formally combine group ID, group sample size, group mean, and group EB Random Effects, & change names for usage ease
-     final <- merge(n, ave, by = "Var1")
-     final <- cbind(final, re_b, re_u, se_mat)
+     # Combine data into a usable data frame
+     dat <- merge(n, ave, by = "Var1")
+     dat <- cbind(dat, re_b, re_u, se_mat)
      fe_names <- colnames(re_b)
      re_names <- colnames(re_u)
-     colnames(final) <- c(cluster, "n", "mean", paste0("b_", fe_names), paste0("u_", re_names), paste0("se_", re_names))
-     rownames(final) <- NULL
+     colnames(dat) <- c(cluster, "n", "mean", paste0("b_", fe_names), paste0("u_", re_names), paste0("se_", re_names))
+     rownames(dat) <- NULL
 
-     #Also, add in a column for the level 2 predictor so that it can be easily called in the formula
-     # Pull out level 2 data from the data frame and then match the cluster IDs to the "final2" data
+     ## Add in columns for any necessary level-2 variables
      if(!is.null(x_lvl2)){
           lvl2 <- data[!duplicated(unlist(data[,cluster])),]
-          final <- suppressWarnings(full_join(final, as_tibble(lvl2)[,c(cluster, x_lvl2)], by = cluster))
+          dat <- suppressWarnings(full_join(dat, as_tibble(lvl2)[,c(cluster, x_lvl2)], by = cluster))
      }
 
      gammas <- smod$coefficients[,1]
@@ -571,12 +573,12 @@ chisq_hlmer <- function(model, summary = NULL, y_lvl1, cluster, x_lvl1 = NULL, x
           if(i == "(Intercept)"){
                xi <- fe_names[fe_names %in% x_lvl2]
                if(!is.null(x_lvl1)){
-                    chisq_out[i] <- sum((lm_b_lvl1$`(Intercept)` - gammas[i] - gammas[xi] %*% t(final[,xi]))^2 / final[,paste0("se_", i)]^2)
+                    chisq_out[i] <- sum((lm_b_lvl1$`(Intercept)` - gammas[i] - gammas[xi] %*% t(dat[,xi]))^2 / dat[,paste0("se_", i)]^2)
                }else{
                     if(length(xi) > 0){
-                         chisq_out[i] <- sum((final$mean - gammas[i] - gammas[xi] %*% t(final[,xi]))^2 / final[,paste0("se_", i)]^2)
+                         chisq_out[i] <- sum((dat$mean - gammas[i] - gammas[xi] %*% t(dat[,xi]))^2 / dat[,paste0("se_", i)]^2)
                     }else{
-                         chisq_out[i] <- sum((final$mean - gammas[i])^2 / final[,paste0("se_", i)]^2)
+                         chisq_out[i] <- sum((dat$mean - gammas[i])^2 / dat[,paste0("se_", i)]^2)
                     }
                }
           }else{
@@ -584,9 +586,9 @@ chisq_hlmer <- function(model, summary = NULL, y_lvl1, cluster, x_lvl1 = NULL, x
                xi <- fe_names[fe_names %in% paste0(i, ":", x_lvl2)]
                xlvli <- gsub(x = xi, pattern = paste0(i, ":"), replacement = "")
                if(length(xi) > 0){
-                    chisq_out[i] <- sum((lm_b_lvl1[,i] - gammas[i] - gammas[xi] %*% t(final[,xlvli]))^2 / final[,paste0("se_", i)]^2)
+                    chisq_out[i] <- sum((lm_b_lvl1[,i] - gammas[i] - gammas[xi] %*% t(dat[,xlvli]))^2 / dat[,paste0("se_", i)]^2)
                }else{
-                    chisq_out[i] <- sum((lm_b_lvl1[,i] - gammas[i])^2 / final[,paste0("se_", i)]^2)
+                    chisq_out[i] <- sum((lm_b_lvl1[,i] - gammas[i])^2 / dat[,paste0("se_", i)]^2)
                }
           }
           df[i] <- smod$ngrps - length(xi) - 1
