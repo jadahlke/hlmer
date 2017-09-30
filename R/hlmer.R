@@ -362,11 +362,30 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
                  icc = icc,
                  chisq_tau = chisq)
 
-     class(out) <- "hlmerMod"
+     class(out) <- c("hlmer", "hlmerMod")
      out
 }
 
-print.hlmerMod <- function(x, ..., digits = 5){
+#' Print method for hlmer-class objects
+#'
+#' @param x hlmer-class object.
+#' @param ... Additional arguments for \code{print()}.
+#' @param digits Number of digits to which results should be printed.
+#'
+#' @return A formatted hlmer-class object.
+#' @export
+print.hlmer <- function(x, ..., digits = 5){
+     print.hlmer.hlmerMod(x = x, ..., digits = digits)
+}
+
+#' Print method for hlmerMod-class objects
+#'
+#' @param x hlmerMod-class object.
+#' @param ... Additional arguments for \code{print()}.
+#' @param digits Number of digits to which results should be printed.
+#'
+#' @return A formatted hlmerMod-class object.
+print.hlmer.hlmerMod <- function(x, ..., digits = 5){
      cat("Call: \n")
      print(x$call)
 
