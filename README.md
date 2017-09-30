@@ -1,7 +1,7 @@
 # README #
 
 * hlmer R package
-* Version 0.1.1
+* Version 0.1.0
 
 ### Author ###
 * Jeffrey A. Dahlke

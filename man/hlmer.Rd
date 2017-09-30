@@ -4,40 +4,39 @@
 \alias{hlmer}
 \title{lmer wrapper to produce HLM7-style output}
 \usage{
-hlmer(criterion_lvl1, cluster, predictors_lvl1 = NULL,
-  predictors_lvl2 = NULL, criteria_lvl2 = "all", fixed_lvl1 = FALSE,
-  center_lvl1 = NULL, center_lvl2 = FALSE, means_lvl1 = NULL,
-  conf_level = 0.95, model_type = 0, data, ...)
+hlmer(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
+  fixed_lvl1 = FALSE, center_lvl1 = NULL, center_lvl2 = FALSE,
+  y_lvl1means = NULL, conf_level = 0.95, model_type = 0, data, ...)
 }
 \arguments{
-\item{criterion_lvl1}{Column label of \code{data} corresponding to criterion variable for level-1 observations.}
+\item{y_lvl1}{Column label of \code{data} corresponding to the criterion variable for level-1 observations.}
 
-\item{cluster}{Column label of \code{data} corresponding to cluster/group identification variable.}
+\item{cluster}{Column label of \code{data} corresponding to the cluster/group identification variable.}
 
-\item{predictors_lvl1}{Column label of \code{data} corresponding to predictor variables for level-1 observations.}
+\item{x_lvl1}{Column label(s) of \code{data} corresponding to the predictor variable(s) for level-1 observations.}
 
-\item{predictors_lvl2}{Column label of \code{data} corresponding to predictor variables for level-2 observations.}
+\item{x_lvl2}{Column label(s) of \code{data} corresponding to the predictor variable(s) for level-2 observations.}
 
-\item{criteria_lvl2}{Optional list of level-1 statistics to be explained by level-2 predictors. Acceptable inputs are a scalar value "all" (indicates that all level 2 predictors should be used to predict all random effects)
-or a list of vectors naming "Intercept" and/or \code{predictors_lvl1} random-effect variable names - vectors in this list must be named using \code{predictors_lvl2} variable names.}
+\item{y_lvl2}{Optional list of level-1 statistics to be explained by level-2 predictors. Acceptable inputs are a scalar value of "all" (indicates that all level 2 predictors should be used to predict all random effects)
+or a list of vectors naming "Intercept" and/or \code{x_lvl1} random-effect variable names - vectors in this list must be named using \code{x_lvl2} variable names.}
 
-\item{fixed_lvl1}{Logical scalar or vector indicating which of the \code{predictors_lvl1} variables should be modeled as fixed effects (\code{TRUE}) or random effects (\code{FALSE}).}
+\item{fixed_lvl1}{Logical scalar or vector indicating which of the \code{x_lvl1} variables should be modeled as fixed effects (\code{TRUE}) or random effects (\code{FALSE}; default).}
 
-\item{center_lvl1}{Optional vector identifying the types of mean centering procedures to be applied to the \code{predictors_lvl1} variables. Options are "cluster" (within-cluster mean centering), "grand" (grand-mean centering), and "none" (no centering; default).}
+\item{center_lvl1}{Optional vector identifying the types of mean centering procedures to be applied to the \code{x_lvl1} variables. Options are "cluster" (within-cluster mean centering), "grand" (grand-mean centering), and "none" (no centering; default).}
 
-\item{center_lvl2}{Optional vector identifying the types of mean centering procedures to be applied to the \code{predictors_lvl2} variables. Options are "grand" (grand-mean centering) and "none" (no centering; default).}
+\item{center_lvl2}{Optional vector identifying the types of mean centering procedures to be applied to the \code{x_lvl2} variables. Options are "grand" (grand-mean centering) and "none" (no centering; default).}
 
-\item{means_lvl1}{Optional list of level-1 statistics to be explained by level-1 predictor mean values (only relevant when one or more level-1 predictors are cluster-mean centered). Acceptable formats for this argument are the same as for \code{criteria_lvl2},
-with the exeption that lists supplied for this argument should be contain vectors named using \code{predictors_lvl1} variable names.}
+\item{y_lvl1means}{Optional list of level-1 statistics to be explained by level-1 predictor mean values (only relevant when one or more level-1 predictors are cluster-mean centered). Acceptable formats for this argument are the same as for \code{y_lvl2},
+with the exeption that lists supplied for this argument should be contain vectors named using \code{x_lvl1} variable names.}
 
 \item{conf_level}{Confidence level to use in constructing confidence bounds around fixed effects.}
 
 \item{model_type}{Numeric scalar indicating which of the following model types to run:
-(0) the most complex model implied by the supplied arguments,
+(0) the complete model implied by the supplied arguments (default),
 (1) unconditional model (i.e,. random-effects ANOVA),
-(2) means-as-outcomes model (requrires that at least one level-2 predictor is avaialble, either from specification using the \code{predictors_lvl2} argument or from cluster-mean centering at least one level-1 predictor using the \code{center_lvl1} argument),
+(2) means-as-outcomes model (requrires that at least one level-2 predictor is avaialble, either from specification using the \code{x_lvl2} argument or from cluster-mean centering at least one level-1 predictor using the \code{center_lvl1} argument),
 (3) random coefficients model (requires that at least one entry supplied for \code{fixed_lvl1} is \code{FALSE}),
-(5) slopes and/or intercepts as outcomes model (requires at least one level-2 predictor or cluster-mean centered level-1 predictor and/or at least one cross-level interaction specified using \code{criteria_lvl2} and \code{means_lvl1}).}
+(5) slopes and/or intercepts as outcomes model (requires at least one level-2 predictor or cluster-mean centered level-1 predictor and/or at least one cross-level interaction specified using \code{y_lvl2} and \code{y_lvl1means}).}
 
 \item{data}{Data frame, matrix, or tibble containing the data to use in the linear model.}
 
@@ -47,22 +46,25 @@ with the exeption that lists supplied for this argument should be contain vector
 Output from the \code{lme4::lmer()} function augmented with ICC statistics, random-effect reliability estimates, confidence intervals for fixed effects, and chi-square tests for random-effects variance.
 }
 \description{
-lmer wrapper to produce HLM7-style output
+This function is a wrapper for \code{lmer()} to formulate a mixed-effects linear model based on user-supplied variables.
+In addition to the output from \code{lmer()}, \code{hlmer()} also provides estimates of ICC statistics, random-effect reliability estimates, confidence intervals for fixed effects, and chi-square tests for random-effects variance.
+A key feature of \code{hlmer()} is that it can automate the process of centering predictors and creating variables from the cluster means of level-1 predictors to be included in level 2 of the model.
+The \code{model_type} argument can be used to specify one of four pre-formatted types of models (using arguments of 1, 2, 3, or 4) or to compute the complete model implied by other arguments (using a 0 argument).
 }
 \examples{
 ## Unconditional model (Raudenbush and Bryk Table 4.2):
-hlmer(criterion_lvl1 = "MATHACH", cluster = "ID", model_type = 1, data = hsb)
+hlmer(y_lvl1 = "MATHACH", cluster = "ID", model_type = 1, data = hsb)
 
 ## Means-as-outcomes model (Raudenbush and Bryk Table 4.3):
-hlmer(criterion_lvl1 = "MATHACH", cluster = "ID", predictors_lvl2 = "MEANSES",
+hlmer(y_lvl1 = "MATHACH", cluster = "ID", x_lvl2 = "MEANSES", y_lvl2 = "all",
 model_type = 2, data = hsb)
 
 ## Random-coefficients model (Raudenbush and Bryk Table 4.4):
-hlmer(criterion_lvl1 = "MATHACH", cluster = "ID", predictors_lvl1 = "SES",
+hlmer(y_lvl1 = "MATHACH", cluster = "ID", x_lvl1 = "SES",
 center_lvl1 = "cluster", model_type = 3, data = hsb)
 
 ## Random-coefficients model (Raudenbush and Bryk Table 4.5):
-hlmer(criterion_lvl1 = "MATHACH", cluster = "ID", predictors_lvl1 = "SES",
-predictors_lvl2 = "SECTOR", center_lvl1 = "cluster", criteria_lvl2 = "all",
-means_lvl1 = "all", model_type = 4, data = hsb)
+hlmer(y_lvl1 = "MATHACH", cluster = "ID", x_lvl1 = "SES",
+x_lvl2 = "SECTOR", center_lvl1 = "cluster", y_lvl2 = "all",
+y_lvl1means = "all", model_type = 4, data = hsb)
 }

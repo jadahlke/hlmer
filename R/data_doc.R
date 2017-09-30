@@ -33,5 +33,3 @@
 #' @examples
 #' data(hsb)
 "hsb"
-
-
