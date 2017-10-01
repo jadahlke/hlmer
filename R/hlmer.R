@@ -4,6 +4,8 @@
 #' In addition to the output from \code{lmer()}, \code{hlmer()} also provides estimates of ICC statistics, random-effect reliability estimates, confidence intervals for fixed effects, and chi-square tests for random-effects variance.
 #' A key feature of \code{hlmer()} is that it can automate the process of centering predictors and creating variables from the cluster means of level-1 predictors to be included in level 2 of the model.
 #' The \code{model_type} argument can be used to specify one of four pre-formatted types of models (using arguments of 1, 2, 3, or 4) or to compute the complete model implied by other arguments (using a 0 argument).
+#' Variables that are cluster-mean centered within this function will be labeled with a "cwc" suffix (abbreviation for centered within cluster) and
+#' variables that are grand-mean centered within this function will be labeled with a "cgm" suffix (abbreviation for centered grand mean).
 #'
 #' @param y_lvl1 Column label of \code{data} corresponding to the criterion variable for level-1 observations.
 #' @param cluster Column label of \code{data} corresponding to the cluster/group identification variable.
@@ -13,9 +15,11 @@
 #' or a list of vectors naming "Intercept" and/or \code{x_lvl1} random-effect variable names - vectors in this list must be named using \code{x_lvl2} variable names.
 #' @param fixed_lvl1 Logical scalar or vector indicating which of the \code{x_lvl1} variables should be modeled as fixed effects (\code{TRUE}) or random effects (\code{FALSE}; default).
 #' @param center_lvl1 Optional vector identifying the types of mean centering procedures to be applied to the \code{x_lvl1} variables. Options are "cluster" (within-cluster mean centering), "grand" (grand-mean centering), and "none" (no centering; default).
-#' @param center_lvl2 Optional vector identifying the types of mean centering procedures to be applied to the \code{x_lvl2} variables. Options are "grand" (grand-mean centering) and "none" (no centering; default).
+#' @param center_lvl2 Vector or scalar identifying the types of mean centering procedures to be applied to the \code{x_lvl2} variables. Options are \code{TRUE} (grand-mean centering) or \code{FALSE} (no centering; default).
 #' @param y_lvl1means Optional list of level-1 statistics to be explained by level-1 predictor mean values (only relevant when one or more level-1 predictors are cluster-mean centered). Acceptable formats for this argument are the same as for \code{y_lvl2},
 #' with the exeption that lists supplied for this argument should be contain vectors named using \code{x_lvl1} variable names.
+#' @param center_lvl1means Vector or scalar identifying the types of mean centering procedures to be applied to the means of \code{x_lvl1} variables. Options are \code{TRUE} (grand-mean centering) or \code{FALSE} (no centering; default).
+#' If this argument is supplied as a vector, it should have as many elements as there are cluster-mean centered level-1 predictors.
 #' @param conf_level Confidence level to use in constructing confidence bounds around fixed effects.
 #' @param model_type Numeric scalar indicating which of the following model types to run:
 #' (0) the complete model implied by the supplied arguments (default),
@@ -60,7 +64,7 @@
 #' y_lvl1means = "all", model_type = 4, data = hsb)
 hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
                   fixed_lvl1 = FALSE, center_lvl1 = NULL, center_lvl2 = FALSE,
-                  y_lvl1means = NULL, conf_level = .95, model_type = 0, data, ...){
+                  y_lvl1means = NULL, center_lvl1means = FALSE, conf_level = .95, model_type = 0, data, ...){
      call <- match.call()
 
      lmer_eq_lvl1 <- lmer_eq_lvl2 <- list()
@@ -113,6 +117,7 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
 
      if(!is.null(x_lvl1)){
           if(!is.null(center_lvl1)){
+               if(length(x_lvl1) > 1 & length(center_lvl1) == 1) center_lvl1 <- rep(center_lvl1, length(x_lvl1))
                lvl1_cwc <- lvl1_cgm <- lvl1_means <- NULL
                for(i in 1:length(center_lvl1)){
                     if(center_lvl1[i] == "cluster"){
@@ -127,6 +132,7 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
                          lmer_eq_lvl1[[i]] <- c(orig = x_lvl1[i],
                                                 lvl1 = paste0(x_lvl1[i], "_cgm"),
                                                 means = NA)
+
                     }
                     if(center_lvl1[i] == "none"){
                          lmer_eq_lvl1[[i]] <- c(orig = x_lvl1[i],
@@ -143,8 +149,28 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
                     colnames(lvl1_cgm) <- paste0(x_lvl1[center_lvl1 == "grand"], "_cgm")
                     data <- cbind(data, lvl1_cgm)
                }
+
                lmer_eq_lvl1 <- t(simplify2array(lmer_eq_lvl1))
+
+               if(any(center_lvl1means)){
+                    lvl1_means_cgm <- NULL
+                    if(length(center_lvl1means) == 1) center_lvl1means <- rep(center_lvl1means, sum(center_lvl1 == "cluster"))
+                    lvl1_means_orig <- lmer_eq_lvl1[center_lvl1 == "cluster","means"]
+                    for(i in 1:length(center_lvl1means)){
+                         if(center_lvl1means[i]){
+                              lvl1_means_cgm <- cbind(lvl1_means_cgm, data[,lmer_eq_lvl1[center_lvl1 == "cluster","means"][i]] -
+                                                           mean(data[,lmer_eq_lvl1[center_lvl1 == "cluster","means"][i]], na.rm = TRUE))
+                              lmer_eq_lvl1[center_lvl1 == "cluster","means"][i] <- paste0(lmer_eq_lvl1[center_lvl1 == "cluster","means"][i], "_cgm")
+                         }
+                    }
+                    colnames(lvl1_means_cgm) <- lmer_eq_lvl1[center_lvl1 == "cluster","means"]
+                    data <- cbind(data, lvl1_means_cgm)
+               }else{
+                    lvl1_means_orig <- NULL
+               }
+
           }else{
+               lvl1_means_orig <- NULL
                lmer_eq_lvl1 <- cbind(orig = x_lvl1,
                                      lvl1 = x_lvl1,
                                      means = NA)
@@ -152,11 +178,12 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
 
           fixed_effects <- fe_lvl1 <- paste(lmer_eq_lvl1[,"lvl1"], collapse = " + ")
      }else{
-          lmer_eq_lvl1 <- fixed_effects <- fe_lvl1 <- NULL
+          lvl1_means_orig <- lmer_eq_lvl1 <- fixed_effects <- fe_lvl1 <- NULL
      }
 
      if(!is.null(x_lvl2)){
           if(any(center_lvl2)){
+               if(length(x_lvl2) > 1 & length(center_lvl2) == 1) center_lvl2 <- rep(center_lvl2, length(x_lvl2))
                lvl2_cgm <- NULL
                for(i in 1:length(center_lvl2)){
                     if(center_lvl2[i]){
@@ -181,9 +208,11 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
 
      if(!is.null(lmer_eq_lvl1) & !is.null(center_lvl1)){
           if(any(center_lvl1 == "cluster")){
-               lmer_eq_lvl2 <- rbind(lmer_eq_lvl2,
-                                     cbind(orig = lmer_eq_lvl1[center_lvl1 == "cluster", "means"],
-                                           lvl2 = lmer_eq_lvl1[center_lvl1 == "cluster", "means"]))
+               lmer_eq_meanslvl1 <- cbind(orig = lmer_eq_lvl1[center_lvl1 == "cluster", "means"],
+                     lvl2 = lmer_eq_lvl1[center_lvl1 == "cluster", "means"])
+               if(!is.null(lvl1_means_orig)) lmer_eq_meanslvl1[,"orig"][center_lvl1 == "cluster"][center_lvl1means] <- lvl1_means_orig
+
+               lmer_eq_lvl2 <- rbind(lmer_eq_lvl2, lmer_eq_meanslvl1)
                if(is.list(y_lvl1means)) names(y_lvl1means) <- paste0(names(y_lvl1means), "_means")
           }
           if(!is.null(y_lvl1means)){

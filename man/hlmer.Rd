@@ -6,7 +6,8 @@
 \usage{
 hlmer(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
   fixed_lvl1 = FALSE, center_lvl1 = NULL, center_lvl2 = FALSE,
-  y_lvl1means = NULL, conf_level = 0.95, model_type = 0, data, ...)
+  y_lvl1means = NULL, center_lvl1means = FALSE, conf_level = 0.95,
+  model_type = 0, data, ...)
 }
 \arguments{
 \item{y_lvl1}{Column label of \code{data} corresponding to the criterion variable for level-1 observations.}
@@ -24,10 +25,13 @@ or a list of vectors naming "Intercept" and/or \code{x_lvl1} random-effect varia
 
 \item{center_lvl1}{Optional vector identifying the types of mean centering procedures to be applied to the \code{x_lvl1} variables. Options are "cluster" (within-cluster mean centering), "grand" (grand-mean centering), and "none" (no centering; default).}
 
-\item{center_lvl2}{Optional vector identifying the types of mean centering procedures to be applied to the \code{x_lvl2} variables. Options are "grand" (grand-mean centering) and "none" (no centering; default).}
+\item{center_lvl2}{Vector or scalar identifying the types of mean centering procedures to be applied to the \code{x_lvl2} variables. Options are \code{TRUE} (grand-mean centering) or \code{FALSE} (no centering; default).}
 
 \item{y_lvl1means}{Optional list of level-1 statistics to be explained by level-1 predictor mean values (only relevant when one or more level-1 predictors are cluster-mean centered). Acceptable formats for this argument are the same as for \code{y_lvl2},
 with the exeption that lists supplied for this argument should be contain vectors named using \code{x_lvl1} variable names.}
+
+\item{center_lvl1means}{Vector or scalar identifying the types of mean centering procedures to be applied to the means of \code{x_lvl1} variables. Options are \code{TRUE} (grand-mean centering) or \code{FALSE} (no centering; default).
+If this argument is supplied as a vector, it should have as many elements as there are cluster-mean centered level-1 predictors.}
 
 \item{conf_level}{Confidence level to use in constructing confidence bounds around fixed effects.}
 
@@ -50,6 +54,8 @@ This function is a wrapper for \code{lmer()} to formulate a mixed-effects linear
 In addition to the output from \code{lmer()}, \code{hlmer()} also provides estimates of ICC statistics, random-effect reliability estimates, confidence intervals for fixed effects, and chi-square tests for random-effects variance.
 A key feature of \code{hlmer()} is that it can automate the process of centering predictors and creating variables from the cluster means of level-1 predictors to be included in level 2 of the model.
 The \code{model_type} argument can be used to specify one of four pre-formatted types of models (using arguments of 1, 2, 3, or 4) or to compute the complete model implied by other arguments (using a 0 argument).
+Variables that are cluster-mean centered within this function will be labeled with a "cwc" suffix (abbreviation for centered within cluster) and
+variables that are grand-mean centered within this function will be labeled with a "cgm" suffix (abbreviation for centered grand mean).
 }
 \examples{
 ## Unconditional model (Raudenbush and Bryk Table 4.2):
