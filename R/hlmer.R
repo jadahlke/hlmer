@@ -11,26 +11,28 @@
 #' @param cluster Column label of \code{data} corresponding to the cluster/group identification variable.
 #' @param x_lvl1 Column label(s) of \code{data} corresponding to the predictor variable(s) for level-1 observations.
 #' @param x_lvl2 Column label(s) of \code{data} corresponding to the predictor variable(s) for level-2 observations.
-#' @param y_lvl2 Optional list of level-1 statistics to be explained by level-2 predictors. Acceptable inputs are a scalar value of "all" (indicates that all level 2 predictors should be used to predict all random effects)
+#' @param y_lvl2 Optional list of level-1 statistics to be explained by level-2 predictors. Acceptable inputs are a scalar value of "all" (indicates that all level 2 predictors should be used to predict all random effects),
+#' "intercepts" (indicates that all level 2 predictors should be used to predict random intercepts),
+#' "slopes" (indicates that all level 2 predictors should be used to predict all random slopes),
 #' or a list of vectors naming "Intercept" and/or \code{x_lvl1} random-effect variable names - vectors in this list must be named using \code{x_lvl2} variable names.
 #' @param fixed_lvl1 Logical scalar or vector indicating which of the \code{x_lvl1} variables should be modeled as fixed effects (\code{TRUE}) or random effects (\code{FALSE}; default).
 #' @param center_lvl1 Optional vector identifying the types of mean centering procedures to be applied to the \code{x_lvl1} variables. Options are "cluster" (within-cluster mean centering), "grand" (grand-mean centering), and "none" (no centering; default).
 #' @param center_lvl2 Vector or scalar identifying the types of mean centering procedures to be applied to the \code{x_lvl2} variables. Options are \code{TRUE} (grand-mean centering) or \code{FALSE} (no centering; default).
 #' @param y_lvl1means Optional list of level-1 statistics to be explained by level-1 predictor mean values (only relevant when one or more level-1 predictors are cluster-mean centered). Acceptable formats for this argument are the same as for \code{y_lvl2},
-#' with the exeption that lists supplied for this argument should be contain vectors named using \code{x_lvl1} variable names.
+#' with the exeption that lists supplied for this argument should contain vectors named using \code{x_lvl1} variable names.
 #' @param center_lvl1means Vector or scalar identifying the types of mean centering procedures to be applied to the means of \code{x_lvl1} variables. Options are \code{TRUE} (grand-mean centering) or \code{FALSE} (no centering; default).
 #' If this argument is supplied as a vector, it should have as many elements as there are cluster-mean centered level-1 predictors.
 #' @param conf_level Confidence level to use in constructing confidence bounds around fixed effects.
 #' @param model_type Numeric scalar indicating which of the following model types to run:
 #' (0) the complete model implied by the supplied arguments (default),
 #' (1) unconditional model (i.e,. random-effects ANOVA),
-#' (2) means-as-outcomes model (requrires that at least one level-2 predictor is avaialble, either from specification using the \code{x_lvl2} argument or from cluster-mean centering at least one level-1 predictor using the \code{center_lvl1} argument),
+#' (2) means-as-outcomes model (requrires that at least one level-2 predictor is available, either from specification using the \code{x_lvl2} argument or from cluster-mean centering at least one level-1 predictor using the \code{center_lvl1} argument),
 #' (3) random coefficients model (requires that at least one entry supplied for \code{fixed_lvl1} is \code{FALSE}),
 #' (5) slopes and/or intercepts as outcomes model (requires at least one level-2 predictor or cluster-mean centered level-1 predictor and/or at least one cross-level interaction specified using \code{y_lvl2} and \code{y_lvl1means}).
 #' @param data Data frame, matrix, or tibble containing the data to use in the linear model.
 #' @param ... Additional arugments to be passed to the \code{lme4::lmer()} function.
 #'
-#' @return Output from the \code{lme4::lmer()} function augmented with ICC statistics, random-effect reliability estimates, confidence intervals for fixed effects, and chi-square tests for random-effects variance.
+#' @return Output from the \code{lmerTest::lmer()} function augmented with ICC statistics, random-effects reliability estimates, confidence intervals for fixed effects, and chi-square tests for random-effects variance.
 #' @export
 #'
 #' @import dplyr
@@ -51,8 +53,8 @@
 #' hlmer(y_lvl1 = "MATHACH", cluster = "ID", model_type = 1, data = hsb)
 #'
 #' ## Means-as-outcomes model (Raudenbush and Bryk Table 4.3):
-#' hlmer(y_lvl1 = "MATHACH", cluster = "ID", x_lvl2 = "MEANSES", y_lvl2 = "all",
-#' model_type = 2, data = hsb)
+#' hlmer(y_lvl1 = "MATHACH", cluster = "ID", x_lvl2 = "MEANSES",
+#' y_lvl2 = "intercepts", model_type = 2, data = hsb)
 #'
 #' ## Random-coefficients model (Raudenbush and Bryk Table 4.4):
 #' hlmer(y_lvl1 = "MATHACH", cluster = "ID", x_lvl1 = "SES",
@@ -62,6 +64,25 @@
 #' hlmer(y_lvl1 = "MATHACH", cluster = "ID", x_lvl1 = "SES",
 #' x_lvl2 = "SECTOR", center_lvl1 = "cluster", y_lvl2 = "all",
 #' y_lvl1means = "all", model_type = 4, data = hsb)
+#'
+#' ## For a more complex model, we can specify which level-2 predictors
+#' ## should be used to predict which level-1 random effects.
+#' ## In this TIMSS example, the level-1 predictor is "self_efy" and
+#' ## the level-2 predictors are "students" and "alg." If we want to
+#' ## predict level-1 intercepts using both level-2 predictors, but we
+#' ## only want to predict level-1 "self_efy" slopes using "students,"
+#' ## we can specify that by passing a list to "y_lvl2" of the form:
+#' ##
+#' ## y_lvl2 = list(students = c("Intercept", "self_efy"),
+#' ##               alg = "Intercept")
+#' ##
+#' ## This tells the program exactly which random effects to explain:
+#' hlmer(y_lvl1 = "scores", cluster = "idteach",
+#'       x_lvl1 = "self_efy", x_lvl2 = c("students", "alg"),
+#'       center_lvl1 = "cluster", center_lvl2 = TRUE,
+#'       y_lvl2 = list(students = c("Intercept", "self_efy"),
+#'                     alg = "Intercept"),
+#'       y_lvl1means = "intercepts", data = timss)
 hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
                   fixed_lvl1 = FALSE, center_lvl1 = NULL, center_lvl2 = FALSE,
                   y_lvl1means = NULL, center_lvl1means = FALSE, conf_level = .95, model_type = 0, data, ...){
@@ -96,6 +117,12 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
                if(y_lvl2[1] == "all"){
                     y_lvl2 <- list()
                     for(i in x_lvl2) y_lvl2[[i]] <- c("Intercept", x_lvl1[!fixed_lvl1])
+               }else if(y_lvl2[1] == "intercepts"){
+                    y_lvl2 <- list()
+                    for(i in x_lvl2) y_lvl2[[i]] <- c("Intercept")
+               }else if(y_lvl2[1] == "slopes"){
+                    y_lvl2 <- list()
+                    for(i in x_lvl2) y_lvl2[[i]] <- c(x_lvl1[!fixed_lvl1])
                }
           }else{
                y_lvl2 <- lapply(y_lvl2, function(x){
@@ -220,6 +247,12 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
                     if(y_lvl1means[1] == "all"){
                          y_lvl1means <- list()
                          for(i in x_lvl1[center_lvl1 == "cluster"]) y_lvl1means[[paste0(i, "_means")]] <- c("Intercept", x_lvl1[!fixed_lvl1])
+                    }else if(y_lvl1means[1] == "intercepts"){
+                         y_lvl1means <- list()
+                         for(i in x_lvl1[center_lvl1 == "cluster"]) y_lvl1means[[paste0(i, "_means")]] <- c("Intercept")
+                    }else if(y_lvl1means[1] == "slopes"){
+                         y_lvl1means <- list()
+                         for(i in x_lvl1[center_lvl1 == "cluster"]) y_lvl1means[[paste0(i, "_means")]] <- c(x_lvl1[!fixed_lvl1])
                     }
                }else{
                     y_lvl1means <- lapply(y_lvl1means, function(x){
@@ -236,6 +269,7 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
                     }
                     if(length(y_lvl1means) == 0) y_lvl1means <- NULL
                }
+
                if(!is.null(y_lvl1means)) y_lvl2 <- append(y_lvl2, y_lvl1means)
           }
      }
@@ -258,19 +292,12 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
           for(i in names(y_lvl2)) if(length(y_lvl2[[i]]) == 0) y_lvl2[[i]] <- NULL
 
           if(!is.null(lmer_eq_lvl1) & !is.null(lmer_eq_lvl2)){
-               if(!is.list(y_lvl2) & y_lvl2[1] == "all"){
-                    xlvl_ints <- expand.grid(lmer_eq_lvl2[,2], lmer_eq_lvl1[,2])
-                    xlvl_ints <- t(apply(xlvl_ints, 1, function(x) c(lvl2 = as.character(x[1]), lvl1 = as.character(x[2]))))
-                    xlvl_ints <- apply(xlvl_ints, 1, function(x) paste(x, collapse = " * "))
-                    xlvl_ints <- paste(xlvl_ints, collapse = " + ")
-               }else{
-                    rownames(lmer_eq_lvl1) <- lmer_eq_lvl1[,1]
-                    y_lvl2 <- lapply(y_lvl2, function(x){lmer_eq_lvl1[x,2]})
+               rownames(lmer_eq_lvl1) <- lmer_eq_lvl1[,1]
+               y_lvl2 <- lapply(y_lvl2, function(x){lmer_eq_lvl1[x,2]})
 
-                    xlvl_ints <- NULL
-                    for(i in names(y_lvl2)) xlvl_ints <- c(xlvl_ints, paste(i, y_lvl2[[i]], sep = " * ", collapse = " + "))
-                    xlvl_ints <- paste(xlvl_ints, collapse = " + ")
-               }
+               xlvl_ints <- NULL
+               for(i in names(y_lvl2)) xlvl_ints <- c(xlvl_ints, paste(i, y_lvl2[[i]], sep = " * ", collapse = " + "))
+               xlvl_ints <- paste(xlvl_ints, collapse = " + ")
           }else{
                xlvl_ints <- NULL
           }

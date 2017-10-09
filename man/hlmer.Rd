@@ -18,7 +18,9 @@ hlmer(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
 
 \item{x_lvl2}{Column label(s) of \code{data} corresponding to the predictor variable(s) for level-2 observations.}
 
-\item{y_lvl2}{Optional list of level-1 statistics to be explained by level-2 predictors. Acceptable inputs are a scalar value of "all" (indicates that all level 2 predictors should be used to predict all random effects)
+\item{y_lvl2}{Optional list of level-1 statistics to be explained by level-2 predictors. Acceptable inputs are a scalar value of "all" (indicates that all level 2 predictors should be used to predict all random effects),
+"intercepts" (indicates that all level 2 predictors should be used to predict random intercepts),
+"slopes" (indicates that all level 2 predictors should be used to predict all random slopes),
 or a list of vectors naming "Intercept" and/or \code{x_lvl1} random-effect variable names - vectors in this list must be named using \code{x_lvl2} variable names.}
 
 \item{fixed_lvl1}{Logical scalar or vector indicating which of the \code{x_lvl1} variables should be modeled as fixed effects (\code{TRUE}) or random effects (\code{FALSE}; default).}
@@ -28,7 +30,7 @@ or a list of vectors naming "Intercept" and/or \code{x_lvl1} random-effect varia
 \item{center_lvl2}{Vector or scalar identifying the types of mean centering procedures to be applied to the \code{x_lvl2} variables. Options are \code{TRUE} (grand-mean centering) or \code{FALSE} (no centering; default).}
 
 \item{y_lvl1means}{Optional list of level-1 statistics to be explained by level-1 predictor mean values (only relevant when one or more level-1 predictors are cluster-mean centered). Acceptable formats for this argument are the same as for \code{y_lvl2},
-with the exeption that lists supplied for this argument should be contain vectors named using \code{x_lvl1} variable names.}
+with the exeption that lists supplied for this argument should contain vectors named using \code{x_lvl1} variable names.}
 
 \item{center_lvl1means}{Vector or scalar identifying the types of mean centering procedures to be applied to the means of \code{x_lvl1} variables. Options are \code{TRUE} (grand-mean centering) or \code{FALSE} (no centering; default).
 If this argument is supplied as a vector, it should have as many elements as there are cluster-mean centered level-1 predictors.}
@@ -38,7 +40,7 @@ If this argument is supplied as a vector, it should have as many elements as the
 \item{model_type}{Numeric scalar indicating which of the following model types to run:
 (0) the complete model implied by the supplied arguments (default),
 (1) unconditional model (i.e,. random-effects ANOVA),
-(2) means-as-outcomes model (requrires that at least one level-2 predictor is avaialble, either from specification using the \code{x_lvl2} argument or from cluster-mean centering at least one level-1 predictor using the \code{center_lvl1} argument),
+(2) means-as-outcomes model (requrires that at least one level-2 predictor is available, either from specification using the \code{x_lvl2} argument or from cluster-mean centering at least one level-1 predictor using the \code{center_lvl1} argument),
 (3) random coefficients model (requires that at least one entry supplied for \code{fixed_lvl1} is \code{FALSE}),
 (5) slopes and/or intercepts as outcomes model (requires at least one level-2 predictor or cluster-mean centered level-1 predictor and/or at least one cross-level interaction specified using \code{y_lvl2} and \code{y_lvl1means}).}
 
@@ -47,7 +49,7 @@ If this argument is supplied as a vector, it should have as many elements as the
 \item{...}{Additional arugments to be passed to the \code{lme4::lmer()} function.}
 }
 \value{
-Output from the \code{lme4::lmer()} function augmented with ICC statistics, random-effect reliability estimates, confidence intervals for fixed effects, and chi-square tests for random-effects variance.
+Output from the \code{lmerTest::lmer()} function augmented with ICC statistics, random-effects reliability estimates, confidence intervals for fixed effects, and chi-square tests for random-effects variance.
 }
 \description{
 This function is a wrapper for \code{lmer()} to formulate a mixed-effects linear model based on user-supplied variables.
@@ -62,8 +64,8 @@ variables that are grand-mean centered within this function will be labeled with
 hlmer(y_lvl1 = "MATHACH", cluster = "ID", model_type = 1, data = hsb)
 
 ## Means-as-outcomes model (Raudenbush and Bryk Table 4.3):
-hlmer(y_lvl1 = "MATHACH", cluster = "ID", x_lvl2 = "MEANSES", y_lvl2 = "all",
-model_type = 2, data = hsb)
+hlmer(y_lvl1 = "MATHACH", cluster = "ID", x_lvl2 = "MEANSES",
+y_lvl2 = "intercepts", model_type = 2, data = hsb)
 
 ## Random-coefficients model (Raudenbush and Bryk Table 4.4):
 hlmer(y_lvl1 = "MATHACH", cluster = "ID", x_lvl1 = "SES",
@@ -73,4 +75,23 @@ center_lvl1 = "cluster", model_type = 3, data = hsb)
 hlmer(y_lvl1 = "MATHACH", cluster = "ID", x_lvl1 = "SES",
 x_lvl2 = "SECTOR", center_lvl1 = "cluster", y_lvl2 = "all",
 y_lvl1means = "all", model_type = 4, data = hsb)
+
+## For a more complex model, we can specify which level-2 predictors
+## should be used to predict which level-1 random effects.
+## In this TIMSS example, the level-1 predictor is "self_efy" and
+## the level-2 predictors are "students" and "alg." If we want to
+## predict level-1 intercepts using both level-2 predictors, but we
+## only want to predict level-1 "self_efy" slopes using "students,"
+## we can specify that by passing a list to "y_lvl2" of the form:
+##
+## y_lvl2 = list(students = c("Intercept", "self_efy"),
+##               alg = "Intercept")
+##
+## This tells the program exactly which random effects to explain:
+hlmer(y_lvl1 = "scores", cluster = "idteach",
+      x_lvl1 = "self_efy", x_lvl2 = c("students", "alg"),
+      center_lvl1 = "cluster", center_lvl2 = TRUE,
+      y_lvl2 = list(students = c("Intercept", "self_efy"),
+                    alg = "Intercept"),
+      y_lvl1means = "intercepts", data = timss)
 }
