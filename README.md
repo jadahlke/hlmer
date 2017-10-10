@@ -17,7 +17,7 @@ Once devtools is installed, run the following command to install the hlmer libra
 
 devtools::install_github("jadahlke/hlmer")
 
-With hlmer installed you can load the library:
+With hlmer installed, you can load the library:
 
 library(hlmer)
 
