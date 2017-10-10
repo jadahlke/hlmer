@@ -10,6 +10,7 @@ The hlmer package is a companion to the lme4 and lmerTest packages that automate
 
 ### Installation ###
 To install hlmer, make sure you have the devtools library (and its dependencies) installed. Run the following to install those libraries:
+
 install.packages("devtools", dependencies = TRUE)
 
 Once devtools is installed, run the following command to install the hlmer library from GitHub:
