@@ -13,12 +13,15 @@ To install hlmer, make sure you have the devtools library (and its dependencies)
 install.packages("devtools", dependencies = TRUE)
 
 Once devtools is installed, run the following command to install the hlmer library from GitHub:
+
 devtools::install_github("jadahlke/hlmer")
 
 With hlmer installed you can load the library:
+
 library(hlmer)
 
 Take hlmer for a test drive! Here's the code to replicate the analysis in Raudenbush and Bryk's (2002) Table 4.5:
+
 hlmer(y_lvl1 = "MATHACH", cluster = "ID", x_lvl1 = "SES",
             x_lvl2 = "SECTOR", center_lvl1 = "cluster", y_lvl2 = "all",
             y_lvl1means = "all", model_type = 4, data = hsb)
