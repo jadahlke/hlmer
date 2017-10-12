@@ -359,7 +359,7 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
           }else{
                eq <- paste0(eq, "1 | ")
           }
-          eq <- paste0(eq, cluster, ")")
+          eq <- as.formula(paste0(eq, cluster, ")"))
      }else{
           if(usable_mods[1]){
                eq <- as.formula(paste0(y_lvl1, " ~ (1 | ", cluster, ")"))
@@ -388,8 +388,9 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
           }else{
                rel <- rel_lvl1(summary = sum, cluster = cluster, data = data)
           }
+          library(lme4)
           chisq <- chisq_hlmer(model = mod, summary = sum, y_lvl1 = y_lvl1,
-                               x_lvl1 = use_preds_lvl1, x_lvl2 = use_preds_lvl2, cluster = cluster, data = data)
+                               x_lvl1 = random_pred_lvl1, x_lvl2 = use_preds_lvl2, cluster = cluster, data = data)
      }else{
           if(usable_mods[1]){
                rel <- rel_lvl1(summary = sum, cluster = cluster, data = data)
@@ -401,7 +402,7 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
           }else  if(usable_mods[3]){
                rel <- rel_lvl1(summary = sum, cluster = cluster, x_lvl1 = random_pred_lvl1, data = data)
                chisq <- chisq_hlmer(model = mod, summary = sum, y_lvl1 = y_lvl1,
-                                    x_lvl1 = use_preds_lvl1, x_lvl2 = use_preds_lvl2, cluster = cluster, data = data)
+                                    x_lvl1 = random_pred_lvl1, x_lvl2 = use_preds_lvl2, cluster = cluster, data = data)
           }else if(usable_mods[4]){
                if(any(!fixed_lvl1)){
                     rel <- rel_lvl1(summary = sum, cluster = cluster, x_lvl1 = random_pred_lvl1, data = data)
@@ -409,7 +410,7 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
                     rel <- rel_lvl1(summary = sum, cluster = cluster, data = data)
                }
                chisq <- chisq_hlmer(model = mod, summary = sum, y_lvl1 = y_lvl1,
-                                    x_lvl1 = use_preds_lvl1, x_lvl2 = use_preds_lvl2, cluster = cluster, data = data)
+                                    x_lvl1 = random_pred_lvl1, x_lvl2 = use_preds_lvl2, cluster = cluster, data = data)
           }
      }
 
@@ -468,6 +469,11 @@ print.hlmer.hlmerMod <- function(x, ..., digits = 5){
      cat("\n")
      cat("Approximate chi-square tests for the variances of random effects: \n")
      print(x$chisq_tau, digits = digits)
+
+     tau_dims <- dim(x$summary$varcor[[1]])
+     n_params <- prod(tau_dims) - tau_dims[1] * (tau_dims[2] - 1) / 2 + 1 + nrow(x$summary$coefficients)
+     cat("\n")
+     cat("Total number of parameters estimated (random + fixed): ", n_params, "\n")
 }
 
 
