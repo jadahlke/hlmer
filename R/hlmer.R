@@ -30,6 +30,7 @@
 #' (2) means-as-outcomes model (requrires that at least one level-2 predictor is available, either from specification using the \code{x_lvl2} argument or from cluster-mean centering at least one level-1 predictor using the \code{center_lvl1} argument),
 #' (3) random coefficients model (requires that at least one entry supplied for \code{fixed_lvl1} is \code{FALSE}),
 #' (5) slopes and/or intercepts as outcomes model (requires at least one level-2 predictor or cluster-mean centered level-1 predictor and/or at least one cross-level interaction specified using \code{y_lvl2} and \code{y_lvl1means}).
+#' @param remove_missing Logical scalar that determines whether cases with missing data should be omitted.
 #' @param data Data frame, matrix, or tibble containing the data to use in the linear model.
 #' @param ... Additional arugments to be passed to the \code{lme4::lmer()} function.
 #'
@@ -50,6 +51,7 @@
 #' @importFrom stringr str_split
 #'
 #' @examples
+#' \dontrun{
 #' ## Unconditional model (Raudenbush and Bryk Table 4.2):
 #' hlmer(y_lvl1 = "MATHACH", cluster = "ID", model_type = 1, data = hsb)
 #'
@@ -84,16 +86,18 @@
 #'       y_lvl2 = list(students = c("Intercept", "self_efy"),
 #'                     alg = "Intercept"),
 #'       y_lvl1means = "intercepts", data = timss)
+#' }
 hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
                   fixed_lvl1 = FALSE, center_lvl1 = NULL, center_lvl2 = FALSE,
-                  y_lvl1means = NULL, center_lvl1means = FALSE, conf_level = .95, cred_level = .95, model_type = 0, data, ...){
+                  y_lvl1means = NULL, center_lvl1means = FALSE, conf_level = .95, cred_level = .95,
+                  model_type = 0, remove_missing = TRUE, data, ...){
      call <- match.call()
 
      lmer_eq_lvl1 <- lmer_eq_lvl2 <- list()
 
      data <- data.frame(data)
      use_cols <- c(cluster, y_lvl1, x_lvl1, x_lvl2)
-     data <- na.omit(data[,use_cols])
+     if(remove_missing) data <- na.omit(data[,use_cols])
 
      if(!is.null(x_lvl1)){
           eliminate_novariance <- function(x){
@@ -396,7 +400,6 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
           }else{
                rel <- rel_lvl1(summary = sum, cluster = cluster, data = data)
           }
-          library(lme4)
           chisq <- chisq_hlmer(model = mod, summary = sum, y_lvl1 = y_lvl1,
                                x_lvl1 = random_pred_lvl1, x_lvl2 = use_preds_lvl2, cluster = cluster, data = data)
      }else{

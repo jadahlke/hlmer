@@ -7,7 +7,7 @@
 hlmer(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
   fixed_lvl1 = FALSE, center_lvl1 = NULL, center_lvl2 = FALSE,
   y_lvl1means = NULL, center_lvl1means = FALSE, conf_level = 0.95,
-  cred_level = 0.95, model_type = 0, data, ...)
+  cred_level = 0.95, model_type = 0, remove_missing = TRUE, data, ...)
 }
 \arguments{
 \item{y_lvl1}{Column label of \code{data} corresponding to the criterion variable for level-1 observations.}
@@ -46,6 +46,8 @@ If this argument is supplied as a vector, it should have as many elements as the
 (3) random coefficients model (requires that at least one entry supplied for \code{fixed_lvl1} is \code{FALSE}),
 (5) slopes and/or intercepts as outcomes model (requires at least one level-2 predictor or cluster-mean centered level-1 predictor and/or at least one cross-level interaction specified using \code{y_lvl2} and \code{y_lvl1means}).}
 
+\item{remove_missing}{Logical scalar that determines whether cases with missing data should be omitted.}
+
 \item{data}{Data frame, matrix, or tibble containing the data to use in the linear model.}
 
 \item{...}{Additional arugments to be passed to the \code{lme4::lmer()} function.}
@@ -62,6 +64,7 @@ Variables that are cluster-mean centered within this function will be labeled wi
 variables that are grand-mean centered within this function will be labeled with a "cgm" suffix (abbreviation for centered grand mean).
 }
 \examples{
+\dontrun{
 ## Unconditional model (Raudenbush and Bryk Table 4.2):
 hlmer(y_lvl1 = "MATHACH", cluster = "ID", model_type = 1, data = hsb)
 
@@ -96,4 +99,5 @@ hlmer(y_lvl1 = "scores", cluster = "idteach",
       y_lvl2 = list(students = c("Intercept", "self_efy"),
                     alg = "Intercept"),
       y_lvl1means = "intercepts", data = timss)
+}
 }
