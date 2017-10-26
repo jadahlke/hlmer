@@ -7,7 +7,7 @@
 hlmer(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
   fixed_lvl1 = FALSE, center_lvl1 = NULL, center_lvl2 = FALSE,
   y_lvl1means = NULL, center_lvl1means = FALSE, conf_level = 0.95,
-  model_type = 0, data, ...)
+  cred_level = 0.95, model_type = 0, data, ...)
 }
 \arguments{
 \item{y_lvl1}{Column label of \code{data} corresponding to the criterion variable for level-1 observations.}
@@ -36,6 +36,8 @@ with the exeption that lists supplied for this argument should contain vectors n
 If this argument is supplied as a vector, it should have as many elements as there are cluster-mean centered level-1 predictors.}
 
 \item{conf_level}{Confidence level to use in constructing confidence bounds around fixed effects.}
+
+\item{cred_level}{Credibility level to use in constructing credibility bounds (ranges of plausible values for random coefficients) around random effects.}
 
 \item{model_type}{Numeric scalar indicating which of the following model types to run:
 (0) the complete model implied by the supplied arguments (default),

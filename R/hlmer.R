@@ -23,6 +23,7 @@
 #' @param center_lvl1means Vector or scalar identifying the types of mean centering procedures to be applied to the means of \code{x_lvl1} variables. Options are \code{TRUE} (grand-mean centering) or \code{FALSE} (no centering; default).
 #' If this argument is supplied as a vector, it should have as many elements as there are cluster-mean centered level-1 predictors.
 #' @param conf_level Confidence level to use in constructing confidence bounds around fixed effects.
+#' @param cred_level Credibility level to use in constructing credibility bounds (ranges of plausible values for random coefficients) around random effects.
 #' @param model_type Numeric scalar indicating which of the following model types to run:
 #' (0) the complete model implied by the supplied arguments (default),
 #' (1) unconditional model (i.e,. random-effects ANOVA),
@@ -85,7 +86,7 @@
 #'       y_lvl1means = "intercepts", data = timss)
 hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
                   fixed_lvl1 = FALSE, center_lvl1 = NULL, center_lvl2 = FALSE,
-                  y_lvl1means = NULL, center_lvl1means = FALSE, conf_level = .95, model_type = 0, data, ...){
+                  y_lvl1means = NULL, center_lvl1means = FALSE, conf_level = .95, cred_level = .95, model_type = 0, data, ...){
      call <- match.call()
 
      lmer_eq_lvl1 <- lmer_eq_lvl2 <- list()
@@ -94,14 +95,15 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
      use_cols <- c(cluster, y_lvl1, x_lvl1, x_lvl2)
      data <- na.omit(data[,use_cols])
 
-     eliminate_novariance <- function(x){
-          if(any(zapsmall(apply(x[,x_lvl1], 2, var)) == 0)){
-               x[0,]
-          }else{
-               x
-          }
-     }
      if(!is.null(x_lvl1)){
+          eliminate_novariance <- function(x){
+               if(any(zapsmall(apply(x[,x_lvl1], 2, var)) == 0)){
+                    x[0,]
+               }else{
+                    x
+               }
+          }
+
           orig_clusters <- unlist(unique(data[,cluster]))
           data <- data %>% group_by_(.dots = cluster) %>% do(eliminate_novariance(x = .))
           data <- data.frame(data)
@@ -375,12 +377,18 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
      mod <- lmerTest::lmer(eq, data = data, ...)
      sum <- summary(mod)
      tau <- attributes(sum$varcor[[1]])$stddev^2
-     icc <- tau / (sum$sigma^2 + tau)
+     icc <- as.numeric(tau[1] / (sum$sigma^2 + tau[1]))
      ci <- cbind(Estimate = sum$coefficients[,1],
                  `Std. Error` = sum$coefficients[,2],
                  `CI (Lower)` = sum$coefficients[,1] - qnorm((1 - conf_level) / 2, lower.tail = FALSE) * sum$coefficients[,2],
                  `CI (Upper)` = sum$coefficients[,1] + qnorm((1 - conf_level) / 2, lower.tail = FALSE) * sum$coefficients[,2])
      if(nrow(ci) == 1) rownames(ci) <- "(Intercept)"
+
+     cv <- cbind(Estimate = sum$coefficients[rownames(sum$varcor[[1]]),1],
+                 Variance = diag(sum$varcor[[1]]),
+                 `CV (Lower)` = sum$coefficients[rownames(sum$varcor[[1]]),1] - qnorm((1 - cred_level) / 2, lower.tail = FALSE) * diag(sum$varcor[[1]])^.5,
+                 `CV (Upper)` = sum$coefficients[rownames(sum$varcor[[1]]),1] + qnorm((1 - cred_level) / 2, lower.tail = FALSE) * diag(sum$varcor[[1]])^.5)
+     if(nrow(cv) == 1) rownames(cv) <- "(Intercept)"
 
      if(model_type == 0){
           if(any(!fixed_lvl1)){
@@ -418,6 +426,7 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
                  model = mod,
                  summary = sum,
                  conf = ci,
+                 cred = cv,
                  reliability = rel,
                  icc = icc,
                  chisq_tau = chisq)
@@ -459,12 +468,18 @@ print.hlmer.hlmerMod <- function(x, ..., digits = 5){
      print(x$conf, digits = digits)
 
      cat("\n")
-     cat("Reliability estimates for random effects: \n")
-     print(x$reliability, digits = digits)
+     cred_level <- x$call$cred_level
+     if(is.null(cred_level)) cred_level <- .95
+     cat(paste0(round(cred_level * 100), "%"), "credibility intervals for random effects: \n")
+     print(x$cred, digits = digits)
 
      cat("\n")
-     cat("Intraclass correlation coefficients (ICCs) for random effects: \n")
+     cat("Intraclass correlation coefficient (ICC): \n")
      print(x$icc, digits = digits)
+
+     cat("\n")
+     cat("Reliability estimates for random effects: \n")
+     print(x$reliability, digits = digits)
 
      cat("\n")
      cat("Approximate chi-square tests for the variances of random effects: \n")
@@ -518,7 +533,9 @@ rel_lvl1 <- function(summary, cluster, x_lvl1 = NULL, data){
      se_mat <- se_lvl1(sigma = summary$sigma, data = data, x_lvl1 = x_lvl1, cluster = cluster)
      tao_vec <- attributes(summary$varcor[[1]])$stddev^2
      tao_mat <- matrix(tao_vec, nrow(se_mat), ncol(se_mat), TRUE)
-     apply(tao_mat / (tao_mat + se_mat^2), 2, mean)
+     out <- apply(tao_mat / (tao_mat + se_mat^2), 2, mean)
+     names(out) <- rownames(summary$varcor[[1]])
+     out
 }
 
 #' Estimate level-1 standard errors for random effects
@@ -615,7 +632,7 @@ chisq_hlmer <- function(model, summary = NULL, y_lvl1, cluster, x_lvl1 = NULL, x
      }else{
           formula_lvl1 <- as.formula(paste(y_lvl1, "~ 1"))
      }
-     lm_lvl1 <- by(data, data[,cluster], function(x){summary(lm(formula_lvl1, data = x))$coeff})
+     lm_lvl1 <- by(data, data[,cluster], function(x){suppressWarnings(summary(lm(formula_lvl1, data = x))$coeff)})
      if(nrow(lm_lvl1[[1]]) == 1){
           lm_b_lvl1 <- unlist(lapply(lm_lvl1, function(x) x[,1]))
           lm_se_lvl1 <- unlist(lapply(lm_lvl1, function(x) x[,2]))
