@@ -31,6 +31,7 @@
 #' (3) random coefficients model (requires that at least one entry supplied for \code{fixed_lvl1} is \code{FALSE}),
 #' (5) slopes and/or intercepts as outcomes model (requires at least one level-2 predictor or cluster-mean centered level-1 predictor and/or at least one cross-level interaction specified using \code{y_lvl2} and \code{y_lvl1means}).
 #' @param remove_missing Logical scalar that determines whether cases with missing data should be omitted.
+#' @param check_lvl1_variance Logical scalar that determines whether clusters with no variance in level-1 predictors should be screened out.
 #' @param data Data frame, matrix, or tibble containing the data to use in the linear model.
 #' @param ... Additional arugments to be passed to the \code{lme4::lmer()} function.
 #'
@@ -63,7 +64,7 @@
 #' hlmer(y_lvl1 = "MATHACH", cluster = "ID", x_lvl1 = "SES",
 #' center_lvl1 = "cluster", model_type = 3, data = hsb)
 #'
-#' ## Random-coefficients model (Raudenbush and Bryk Table 4.5):
+#' ## Slopes and intercepts as outcomes model (Raudenbush and Bryk Table 4.5):
 #' hlmer(y_lvl1 = "MATHACH", cluster = "ID", x_lvl1 = "SES",
 #' x_lvl2 = "SECTOR", center_lvl1 = "cluster", y_lvl2 = "all",
 #' y_lvl1means = "all", model_type = 4, data = hsb)
@@ -90,7 +91,191 @@
 hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
                   fixed_lvl1 = FALSE, center_lvl1 = NULL, center_lvl2 = FALSE,
                   y_lvl1means = NULL, center_lvl1means = FALSE, conf_level = .95, cred_level = .95,
-                  model_type = 0, remove_missing = TRUE, data, ...){
+                  model_type = 0, remove_missing = TRUE, check_lvl1_variance = TRUE, data, ...){
+     .hlmer(y_lvl1 = y_lvl1, cluster = cluster, x_lvl1 = x_lvl1, x_lvl2 = x_lvl2, y_lvl2 = y_lvl2,
+            fixed_lvl1 = fixed_lvl1, center_lvl1 = center_lvl1, center_lvl2 = center_lvl2,
+            y_lvl1means = y_lvl1means, center_lvl1means = center_lvl1means, conf_level = conf_level, cred_level = cred_level,
+            model_type = model_type, remove_missing = remove_missing, check_lvl1_variance = check_lvl1_variance, data, ...)
+}
+
+
+#' lmer wrapper to produce HLM7-style output from multi-level equations
+#'
+#' This function is a wrapper for \code{lmer()} to formulate a mixed-effects linear model based on user-supplied multi-level equations.
+#' In addition to the output from \code{lmer()}, \code{hlmer2()} also provides estimates of ICC statistics, random-effect reliability estimates, confidence intervals for fixed effects, and chi-square tests for random-effects variance.
+#' To ensure that a simplified model (e.g., an unconditional model) run with this function will be based on the same cases as a more complex model, supply a \code{model_type} argument using the values outlined in the documentation for the \code{hlmer()} function.
+#' IMPORTANT: Unlike the \code{hlmer()} function, this function requires that the user manually center predictors. To automate the centering process, see the \code{center_data()} function.
+#'
+#' @param conf_level Confidence level to use in constructing confidence bounds around fixed effects.
+#' @param eq_lvl1 Regression equation (as a string) for level-1 models. Do not use parentheses in the model. When supplying an interaction between level-1 variables, use either "*" or ":" notation and manually supply the main effects. In the output, all within-level interactions will be indicated by a "_X_" symbol between the variables.
+#' @param eq_lvl2 List of regression equations (as strings) for level-2 models, with outcomes labeled as "intercept" or as level-1 predictor names. If left NULL, random intercepts will be estimated, but all slopes will be treated as fixed effects.
+#' To specify a fixed effect, simply omit the variable from the \code{eq_lvl2} list or provide a regression of the following form: "predictor ~ 0", where "predictor" is the name of a level-1 explanatory variable.
+#' To specify a random effect with no level-2 explanatory variable, provide a regression of the following form: "predictor ~ 1".
+#' When supplying an interaction between level-2 variables, use either "*" or ":" notation and manually supply the main effects. In the output, all within-level interactions will be indicated by a "_X_" symbol between the variables.
+#' @param cluster Column label of \code{data} corresponding to the cluster/group identification variable.
+#' @param cred_level Credibility level to use in constructing credibility bounds (ranges of plausible values for random coefficients) around random effects.
+#' @param remove_missing Logical scalar that determines whether cases with missing data should be omitted.
+#' @param check_lvl1_variance Logical scalar that determines whether clusters with no variance in level-1 predictors should be screened out.
+#' @param data Data frame, matrix, or tibble containing the data to use in the linear model.
+#' @param ... Additional arugments to be passed to the \code{lme4::lmer()} function.
+#'
+#' @return Output from the \code{lmerTest::lmer()} function augmented with ICC statistics, random-effects reliability estimates, confidence intervals for fixed effects, and chi-square tests for random-effects variance.
+#' @export
+#'
+#' @import dplyr
+#' @import lmerTest
+#' @importFrom lme4 ranef
+#' @importFrom stats aggregate
+#' @importFrom stats as.formula
+#' @importFrom stats coef
+#' @importFrom stats lm
+#' @importFrom stats na.omit
+#' @importFrom stats pchisq
+#' @importFrom stats qnorm
+#' @importFrom stats var
+#' @importFrom stringr str_split
+#'
+#' @examples
+#' \dontrun{
+#' ## Center the HSB database:
+#' dat <- center_data(cluster = "ID", data = hsb)
+#'
+#' ## Unconditional model (Raudenbush and Bryk Table 4.2):
+#' hlmer2(eq_lvl1 = "MATHACH ~ 1", cluster = "ID", data = dat)
+#'
+#' ## Means-as-outcomes model (Raudenbush and Bryk Table 4.3):
+#' hlmer2(eq_lvl1 = "MATHACH ~ 1", eq_lvl2 = "intercept ~ MEANSES",
+#' cluster = "ID", data = dat)
+#'
+#' ## Random-coefficients model (Raudenbush and Bryk Table 4.4):
+#' hlmer2(eq_lvl1 = "MATHACH ~ SES_cwc",
+#' eq_lvl2 = list("intercept ~ MEANSES", "SES_cwc ~ 1"),
+#' cluster = "ID", data = dat)
+#'
+#' ## Slopes and intercepts as outcomes model (Raudenbush and Bryk Table 4.5):
+#' hlmer2(eq_lvl1 = "MATHACH ~ SES_cwc",
+#' eq_lvl2 = list("intercept ~ SECTOR + MEANSES", "SES_cwc ~ SECTOR + MEANSES"),
+#' cluster = "ID", data = dat)
+#'
+#' ## For a more complex model, we can specify which level-2 predictors
+#' ## should be used to predict which level-1 random effects.
+#' ## In this TIMSS example, the level-1 predictor is "self_efy" and
+#' ## the level-2 predictors are "students" and "alg." If we want to
+#' ## predict level-1 intercepts using both level-2 predictors, but we
+#' ## only want to predict level-1 "self_efy" slopes using "students,"
+#' ## we can specify that with the following model:
+#' ##
+#' hlmer2(eq_lvl1 = "scores ~ self_efy",
+#' eq_lvl2 = list("intercept ~ alg + students", "self_efy ~ students"),
+#' cluster = "idteach", data = timss)
+#' }
+hlmer2 <- function(eq_lvl1, eq_lvl2 = NULL, cluster,
+                   conf_level = 0.95, cred_level = 0.95,
+                   remove_missing = TRUE, check_lvl1_variance = TRUE, data, ...){
+
+     if(is.null(eq_lvl2)) eq_lvl2 <- "intercept ~ 1"
+
+     eq_lvl1 <- gsub(x = eq_lvl1, pattern = " ", replacement = "")
+     if(is.list(eq_lvl2)){
+          eq_lvl2 <- lapply(eq_lvl2, function(x) gsub(x = x, pattern = " ", replacement = ""))
+     }else{
+          eq_lvl2 <- gsub(x = eq_lvl2, pattern = " ", replacement = "")
+     }
+
+     eq_lvl1_split <- stringr::str_split(eq_lvl1, pattern = "~")[[1]]
+     eq_lvl2_split <- stringr::str_split(eq_lvl2, pattern = "~")
+
+     eq_lvl1_lhs <- eq_lvl1_split[1]
+     eq_lvl1_rhs <- eq_lvl1_split[2]
+     eq_lvl1_rhs_split <- stringr::str_split(eq_lvl1_rhs, pattern = "\\+")[[1]]
+
+     interaction_lvl1 <- grepl(pattern = "[*]", x = eq_lvl1_rhs_split) | grepl(pattern = "[:]", x = eq_lvl1_rhs_split)
+     interaction_lvl1 <- eq_lvl1_rhs_split[interaction_lvl1]
+     if(length(interaction_lvl1) > 0){
+          interaction_lvl1 <- gsub(pattern = "[:]", x = interaction_lvl1, replacement = "*")
+          eq_lvl1_rhs_split <- gsub(pattern = "[:]", x = eq_lvl1_rhs_split, replacement = "*")
+          eq_lvl2_split <- lapply(eq_lvl2_split, function(x){c(gsub(pattern = "[:]", x = x[1], replacement = "*"), x[-1])})
+
+          interaction_lvl1_label <- gsub(pattern = "[*]", x = interaction_lvl1, replacement = "_X_")
+          eq_lvl1_rhs_split <- gsub(pattern = "[*]", x = eq_lvl1_rhs_split, replacement = "_X_")
+          eq_lvl2_split <- lapply(eq_lvl2_split, function(x){c(gsub(pattern = "[*]", x = x[1], replacement = "_X_"), x[-1])})
+
+          data_int <- list()
+          for(i in 1:length(interaction_lvl1))
+               data_int[[interaction_lvl1_label[i]]] <- eval(parse(text = interaction_lvl1[i]), data)
+
+          data <- cbind(data, data.frame(data_int))
+     }
+
+     eq_lvl2_lhs <- lapply(eq_lvl2_split, function(x) x[1])
+     eq_lvl2_rhs <- lapply(eq_lvl2_split, function(x) x[2])
+     eq_lvl2_rhs_split <- lapply(eq_lvl2_rhs, function(x) stringr::str_split(x, pattern = "\\+")[[1]])
+     names(eq_lvl2_rhs_split) <- unlist(eq_lvl2_lhs)
+
+     y_lvl1 <- eq_lvl1_lhs
+     x_lvl1 <- eq_lvl1_rhs_split
+
+     x_lvl2 <- unique(unlist(eq_lvl2_rhs_split))
+     x_lvl2 <- x_lvl2[x_lvl2 != "1"]
+     x_lvl2 <- x_lvl2[x_lvl2 != "0"]
+     for(i in names(eq_lvl2_rhs_split)) if(eq_lvl2_rhs_split[[i]][1] == "0") eq_lvl2_rhs_split[[i]] <- NULL
+
+     interaction_lvl2 <- grepl(pattern = "[*]", x = x_lvl2)
+     interaction_lvl2 <- x_lvl2[interaction_lvl2]
+     if(length(interaction_lvl2) > 0){
+          interaction_lvl2 <- gsub(pattern = "[:]", x = interaction_lvl2, replacement = "*")
+          names(eq_lvl2_rhs_split) <- gsub(pattern = "[:]", x = names(eq_lvl2_rhs_split), replacement = "*")
+          eq_lvl2_lhs <- lapply(eq_lvl2_lhs, function(x){gsub(pattern = "[:]", x = x, replacement = "*")})
+          eq_lvl2_rhs_split <- lapply(eq_lvl2_rhs_split, function(x){gsub(pattern = "[:]", x = x, replacement = "*")})
+          x_lvl2 <- gsub(pattern = "[:]", x = x_lvl2, replacement = "*")
+
+          interaction_lvl2_label <- gsub(pattern = "[*]", x = interaction_lvl2, replacement = "_X_")
+          names(eq_lvl2_rhs_split) <- gsub(pattern = "[*]", x = names(eq_lvl2_rhs_split), replacement = "_X_")
+          eq_lvl2_lhs <- lapply(eq_lvl2_lhs, function(x){gsub(pattern = "[*]", x = x, replacement = "_X_")})
+          eq_lvl2_rhs_split <- lapply(eq_lvl2_rhs_split, function(x){gsub(pattern = "[*]", x = x, replacement = "_X_")})
+          x_lvl2 <- gsub(pattern = "[*]", x = x_lvl2, replacement = "_X_")
+
+          data_int <- list()
+          for(i in 1:length(interaction_lvl2))
+               data_int[[interaction_lvl2_label[i]]] <- eval(parse(text = interaction_lvl2[i]), data)
+
+          data <- cbind(data, data.frame(data_int))
+     }
+
+     y_lvl2 <- as.list(x_lvl2)
+     names(y_lvl2) <- x_lvl2
+     for(i in x_lvl2){
+          y_lvl2[[i]] <- names(eq_lvl2_rhs_split)[unlist(lapply(eq_lvl2_rhs_split, function(x) any(x == i)))]
+     }
+     y_lvl2 <- lapply(y_lvl2, function(x){
+          x_lo <- tolower(x)
+          if(any(x_lo == "intercept")){
+               x[x_lo == "intercept"] <- "Intercept"
+          }
+          x
+     })
+
+     fixed_lvl1 <- !(eq_lvl1_rhs_split %in% names(eq_lvl2_rhs_split))
+
+     if(eq_lvl1_rhs_split[1] == "1"){
+          x_lvl1 <- NULL
+          fixed_lvl1 <- FALSE
+     }
+     if(length(x_lvl2) == 0) x_lvl2 <- NULL
+     if(length(y_lvl2) == 0) y_lvl2 <- NULL
+
+     out <- .hlmer(y_lvl1 = y_lvl1, cluster = cluster, x_lvl1 = x_lvl1, x_lvl2 = x_lvl2, y_lvl2 = y_lvl2,
+                   fixed_lvl1 = fixed_lvl1, conf_level = conf_level, cred_level = cred_level,
+                   remove_missing = remove_missing, check_lvl1_variance = check_lvl1_variance, data = data, ...)
+     out$call <- match.call()
+     out
+}
+
+
+.hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
+                  fixed_lvl1 = FALSE, center_lvl1 = NULL, center_lvl2 = FALSE,
+                  y_lvl1means = NULL, center_lvl1means = FALSE, conf_level = .95, cred_level = .95,
+                  model_type = 0, remove_missing = TRUE, check_lvl1_variance = TRUE, data, ...){
      call <- match.call()
 
      lmer_eq_lvl1 <- lmer_eq_lvl2 <- list()
@@ -99,7 +284,7 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
      use_cols <- c(cluster, y_lvl1, x_lvl1, x_lvl2)
      if(remove_missing) data <- na.omit(data[,use_cols])
 
-     if(!is.null(x_lvl1)){
+     if(check_lvl1_variance & !is.null(x_lvl1)){
           eliminate_novariance <- function(x){
                if(any(zapsmall(apply(x[,x_lvl1], 2, var)) == 0)){
                     x[0,]
@@ -242,7 +427,7 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
      if(!is.null(lmer_eq_lvl1) & !is.null(center_lvl1)){
           if(any(center_lvl1 == "cluster")){
                lmer_eq_meanslvl1 <- cbind(orig = lmer_eq_lvl1[center_lvl1 == "cluster", "means"],
-                     lvl2 = lmer_eq_lvl1[center_lvl1 == "cluster", "means"])
+                                          lvl2 = lmer_eq_lvl1[center_lvl1 == "cluster", "means"])
                if(!is.null(lvl1_means_orig)) lmer_eq_meanslvl1[,"orig"][center_lvl1 == "cluster"][center_lvl1means] <- lvl1_means_orig
 
                lmer_eq_lvl2 <- rbind(lmer_eq_lvl2, lmer_eq_meanslvl1)
@@ -432,7 +617,8 @@ hlmer <- function(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
                  cred = cv,
                  reliability = rel,
                  icc = icc,
-                 chisq_tau = chisq)
+                 chisq_tau = chisq,
+                 conf_level = conf_level, cred_level = cred_level)
 
      class(out) <- c("hlmer", "hlmerMod")
      out
@@ -450,6 +636,7 @@ print.hlmer <- function(x, ..., digits = 5){
      print.hlmer.hlmerMod(x = x, ..., digits = digits)
 }
 
+
 #' Print method for hlmerMod-class objects
 #'
 #' @param x hlmerMod-class object.
@@ -465,13 +652,13 @@ print.hlmer.hlmerMod <- function(x, ..., digits = 5){
      print(x$summary)
 
      cat("\n")
-     conf_level <- x$call$conf_level
+     conf_level <- x$conf_level
      if(is.null(conf_level)) conf_level <- .95
      cat(paste0(round(conf_level * 100), "%"), "confidence intervals for fixed effects: \n")
      print(x$conf, digits = digits)
 
      cat("\n")
-     cred_level <- x$call$cred_level
+     cred_level <- x$cred_level
      if(is.null(cred_level)) cred_level <- .95
      cat(paste0(round(cred_level * 100), "%"), "credibility intervals for random effects: \n")
      print(x$cred, digits = digits)
@@ -489,9 +676,11 @@ print.hlmer.hlmerMod <- function(x, ..., digits = 5){
      print(x$chisq_tau, digits = digits)
 
      tau_dims <- dim(x$summary$varcor[[1]])
-     n_params <- prod(tau_dims) - tau_dims[1] * (tau_dims[2] - 1) / 2 + 1 + nrow(x$summary$coefficients)
+     n_random <- prod(tau_dims) - tau_dims[1] * (tau_dims[2] - 1) / 2 + 1
+     n_fixed <- nrow(x$summary$coefficients)
+     n_params <- n_random + n_fixed
      cat("\n")
-     cat("Total number of parameters estimated (random + fixed): ", n_params, "\n")
+     cat(paste0("Total number of parameters estimated (", n_random, " random + ", n_fixed, " fixed): ", n_params), "\n")
 }
 
 
@@ -522,6 +711,57 @@ cluster_means <- function(x, cluster){
      for(i in cluster_lvls) x[cluster == i] <- x_center[[i]]
      x
 }
+
+
+#' Generate centered versions of all variables in a data set.
+#'
+#' Variables that are cluster-mean centered will be labeled with a "cwc" suffix (abbreviation for centered within cluster),
+#' the cluster means of level-1 variables will be labeled with a "means" suffix, and
+#' variables that are grand-mean centered will be labeled with a "cgm" suffix (abbreviation for centered grand mean).
+#'
+#' @param data Data frame, matrix, or tibble containing the data to center.
+#' @param cluster Column label of \code{data} corresponding to the cluster/group identification variable.
+#'
+#' @return An augmented database with variables indicating level-1 cluster means, cluster-mean centered level-1 variables, grand-mean centered level-1 variables, and grand-mean centered level-2 variables.
+#' @export
+#'
+#' @importFrom tibble as_tibble
+#'
+#' @examples
+#' \dontrun{
+#' center_data(data = timss, cluster = "idteach")
+#' }
+center_data <- function(data, cluster){
+     data <- data.frame(data)
+     .data <- data
+     numvars <- suppressWarnings(apply(data, 2, function(x) is.numeric(as.numeric(unlist(x)))))
+     data <- data.frame(apply(data[,numvars], 2, function(x) as.numeric(unlist(x))))
+     data[,cluster] <- NULL
+     data <- cbind(.data[,cluster], data)
+     colnames(data)[1] <- cluster
+
+     cluster_vars <- t(simplify2array(by(data, data[,cluster], apply, 2, var, na.rm = TRUE)))
+     cluster_vars[is.na(cluster_vars)] <- 0
+     lvl1 <- apply(cluster_vars, 2, function(x) any(x > 0))
+
+     dat_lvl1 <- data[,lvl1]
+     dat_lvl2 <- data[,!lvl1]
+     dat_lvl2[,cluster] <- NULL
+
+     dat_lvl1_means <- apply(dat_lvl1, 2, function(x) cluster_means(unlist(x), cluster = unlist(data[,cluster])))
+     dat_lvl1_cwc <- dat_lvl1 - dat_lvl1_means
+     dat_lvl1_cgm <- apply(dat_lvl1, 2, function(x) x - mean(x, na.rm = TRUE))
+     dat_lvl2_cgm <- apply(dat_lvl2, 2, function(x) x - mean(x, na.rm = TRUE))
+
+     colnames(dat_lvl1_means) <- paste0(colnames(dat_lvl1_means), "_means")
+     colnames(dat_lvl1_cwc) <- paste0(colnames(dat_lvl1_cwc), "_cwc")
+     colnames(dat_lvl1_cgm) <- paste0(colnames(dat_lvl1_cgm), "_cgm")
+     colnames(dat_lvl2_cgm) <- paste0(colnames(dat_lvl2_cgm), "_cgm")
+
+     as_tibble(cbind(.data, dat_lvl1_means, dat_lvl1_cwc, dat_lvl1_cgm, dat_lvl2_cgm))
+}
+
+
 
 #' Estimate the reliability of random effects
 #'

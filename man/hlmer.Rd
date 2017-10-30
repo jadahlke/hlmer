@@ -7,7 +7,8 @@
 hlmer(y_lvl1, cluster, x_lvl1 = NULL, x_lvl2 = NULL, y_lvl2 = NULL,
   fixed_lvl1 = FALSE, center_lvl1 = NULL, center_lvl2 = FALSE,
   y_lvl1means = NULL, center_lvl1means = FALSE, conf_level = 0.95,
-  cred_level = 0.95, model_type = 0, remove_missing = TRUE, data, ...)
+  cred_level = 0.95, model_type = 0, remove_missing = TRUE,
+  check_lvl1_variance = TRUE, data, ...)
 }
 \arguments{
 \item{y_lvl1}{Column label of \code{data} corresponding to the criterion variable for level-1 observations.}
@@ -48,6 +49,8 @@ If this argument is supplied as a vector, it should have as many elements as the
 
 \item{remove_missing}{Logical scalar that determines whether cases with missing data should be omitted.}
 
+\item{check_lvl1_variance}{Logical scalar that determines whether clusters with no variance in level-1 predictors should be screened out.}
+
 \item{data}{Data frame, matrix, or tibble containing the data to use in the linear model.}
 
 \item{...}{Additional arugments to be passed to the \code{lme4::lmer()} function.}
@@ -76,7 +79,7 @@ y_lvl2 = "intercepts", model_type = 2, data = hsb)
 hlmer(y_lvl1 = "MATHACH", cluster = "ID", x_lvl1 = "SES",
 center_lvl1 = "cluster", model_type = 3, data = hsb)
 
-## Random-coefficients model (Raudenbush and Bryk Table 4.5):
+## Slopes and intercepts as outcomes model (Raudenbush and Bryk Table 4.5):
 hlmer(y_lvl1 = "MATHACH", cluster = "ID", x_lvl1 = "SES",
 x_lvl2 = "SECTOR", center_lvl1 = "cluster", y_lvl2 = "all",
 y_lvl1means = "all", model_type = 4, data = hsb)
