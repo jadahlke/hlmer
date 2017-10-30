@@ -266,6 +266,7 @@ hlmer2 <- function(eq_lvl1, eq_lvl2 = NULL, cluster,
 
      out <- .hlmer(y_lvl1 = y_lvl1, cluster = cluster, x_lvl1 = x_lvl1, x_lvl2 = x_lvl2, y_lvl2 = y_lvl2,
                    fixed_lvl1 = fixed_lvl1, conf_level = conf_level, cred_level = cred_level,
+                   center_lvl1 = NULL, center_lvl2 = FALSE, y_lvl1means = NULL, center_lvl1means = NULL,
                    remove_missing = remove_missing, check_lvl1_variance = check_lvl1_variance, data = data, ...)
      out$call <- match.call()
      out
