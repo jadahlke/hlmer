@@ -1,5 +1,7 @@
 # README #
 
+[![Build Status](https://travis-ci.org/jadahlke/hlmer.svg?branch=master)](https://travis-ci.org/jadahlke/hlmer)
+
 * hlmer R package
 * Version 0.1.0
 
