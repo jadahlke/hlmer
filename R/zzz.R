@@ -1,5 +1,5 @@
 ## Global variables to be called from data frames with known variables names:
-globalVariables(c("."))
+globalVariables(c(".", "term"))
 
 
 ## Messages to be displayed when the user loads psychmeta:

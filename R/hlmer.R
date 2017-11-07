@@ -619,7 +619,8 @@ hlmer2 <- function(eq_lvl1, eq_lvl2 = NULL, cluster,
                  reliability = rel,
                  icc = icc,
                  chisq_tau = chisq,
-                 conf_level = conf_level, cred_level = cred_level)
+                 conf_level = conf_level, cred_level = cred_level,
+                 data = data)
 
      class(out) <- c("hlmer", "hlmerMod")
      out
