@@ -63,7 +63,7 @@ create_regeq <- function(eq_lvl1, eq_lvl2, eq_lvl3 = NULL, cluster_lvl2, cluster
                lvl2 <- NULL
           }
           if(!is.null(eq_lvl3)){
-               lvl3 <- clean_reglist(eq_lvl3)
+               lvl3 <- clean_reglist(reg_list = eq_lvl3)
           }else{
                lvl3 <- NULL
           }
@@ -172,7 +172,7 @@ clean_reglist <- function(reg_list){
                     }
                }
      }
-     y <- c(names(mix_term))
+     y <- c(names(out))
      if(all(y != "intercept")) y <- c("0", y)
      if(any(y == "intercept")) y[which(y == "intercept")] <- "1"
      list(re = y, x = unique(as.character(unlist(mix_term))))
