@@ -17,12 +17,12 @@
 #' eq_lvl1 <- "outcome ~ x1_lvl1 + x2_lvl1"
 #'
 #' ## Level-2 equations:
-#' eq_lvl2 <- list("intercept ~ x1_lvl2 + x2_lvl2",
+#' eq_lvl2 <- list("outcome ~ x1_lvl2 + x2_lvl2",
 #'                 "x1_lvl1 ~ x1_lvl2 + x2_lvl2",
 #'                 "x2_lvl1 ~ 1")
 #'
 #' ## Level-3 equations:
-#' eq_lvl3 <- list("intercept ~ x1_lvl3",
+#' eq_lvl3 <- list("outcome ~ x1_lvl3",
 #'                 "x1_lvl2 ~ x1_lvl3",
 #'                 "x2_lvl2 ~ 1")
 #'
@@ -45,6 +45,7 @@ create_regeq <- function(eq_lvl1, eq_lvl2, eq_lvl3 = NULL, cluster_lvl2, cluster
      if(is.null(cluster_lvl3)){
           lvl1 <- split_regeq(reg_eq = eq_lvl1)
           if(!is.null(eq_lvl2)){
+               eq_lvl2 <- lapply(eq_lvl2, function(x) gsub(x = x, pattern = lvl1$y, replacement = "intercept"))
                lvl2 <- clean_reglist(eq_lvl2)
           }else{
                lvl2 <- NULL
@@ -58,11 +59,13 @@ create_regeq <- function(eq_lvl1, eq_lvl2, eq_lvl3 = NULL, cluster_lvl2, cluster
      }else{
           lvl1 <- split_regeq(reg_eq = eq_lvl1)
           if(!is.null(eq_lvl2)){
+               eq_lvl2 <- lapply(eq_lvl2, function(x) gsub(x = x, pattern = lvl1$y, replacement = "intercept"))
                lvl2 <- clean_reglist(eq_lvl2)
           }else{
                lvl2 <- NULL
           }
           if(!is.null(eq_lvl3)){
+               eq_lvl3 <- lapply(eq_lvl3, function(x) gsub(x = x, pattern = lvl1$y, replacement = "intercept"))
                lvl3 <- clean_reglist(reg_list = eq_lvl3)
           }else{
                lvl3 <- NULL
@@ -96,7 +99,8 @@ create_regeq <- function(eq_lvl1, eq_lvl2, eq_lvl3 = NULL, cluster_lvl2, cluster
 
      list(mixed = formula(reg_eq),
           lvl1_full = formula(lvl1_full),
-          lvl1_re = formula(lvl1_re))
+          lvl1_re = formula(lvl1_re),
+          lvl1_lmList = formula(paste(lvl1_re, " | ", cluster_lvl2)))
 }
 
 

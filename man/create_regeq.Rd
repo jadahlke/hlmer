@@ -29,12 +29,12 @@ Create mixed-effects regression formula from multi-level formulas from up to 3 l
 eq_lvl1 <- "outcome ~ x1_lvl1 + x2_lvl1"
 
 ## Level-2 equations:
-eq_lvl2 <- list("intercept ~ x1_lvl2 + x2_lvl2",
+eq_lvl2 <- list("outcome ~ x1_lvl2 + x2_lvl2",
                 "x1_lvl1 ~ x1_lvl2 + x2_lvl2",
                 "x2_lvl1 ~ 1")
 
 ## Level-3 equations:
-eq_lvl3 <- list("intercept ~ x1_lvl3",
+eq_lvl3 <- list("outcome ~ x1_lvl3",
                 "x1_lvl2 ~ x1_lvl3",
                 "x2_lvl2 ~ 1")
 
