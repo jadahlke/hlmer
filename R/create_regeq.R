@@ -45,7 +45,7 @@ create_regeq <- function(eq_lvl1, eq_lvl2, eq_lvl3 = NULL, cluster_lvl2, cluster
      if(is.null(cluster_lvl3)){
           lvl1 <- split_regeq(reg_eq = eq_lvl1)
           if(!is.null(eq_lvl2)){
-               eq_lvl2 <- lapply(eq_lvl2, function(x) gsub(x = x, pattern = lvl1$y, replacement = "intercept"))
+               eq_lvl2 <- clean_intercept(eq_list = eq_lvl2, y_name = lvl1$y)
                lvl2 <- clean_reglist(eq_lvl2)
           }else{
                lvl2 <- NULL
@@ -59,13 +59,13 @@ create_regeq <- function(eq_lvl1, eq_lvl2, eq_lvl3 = NULL, cluster_lvl2, cluster
      }else{
           lvl1 <- split_regeq(reg_eq = eq_lvl1)
           if(!is.null(eq_lvl2)){
-               eq_lvl2 <- lapply(eq_lvl2, function(x) gsub(x = x, pattern = lvl1$y, replacement = "intercept"))
+               eq_lvl2 <- clean_intercept(eq_list = eq_lvl2, y_name = lvl1$y)
                lvl2 <- clean_reglist(eq_lvl2)
           }else{
                lvl2 <- NULL
           }
           if(!is.null(eq_lvl3)){
-               eq_lvl3 <- lapply(eq_lvl3, function(x) gsub(x = x, pattern = lvl1$y, replacement = "intercept"))
+               eq_lvl3 <- clean_intercept(eq_list = eq_lvl3, y_name = lvl1$y)
                lvl3 <- clean_reglist(reg_list = eq_lvl3)
           }else{
                lvl3 <- NULL
@@ -196,6 +196,23 @@ split_reglist <- function(reg_list){
           }
           out
      })
+}
+
+
+clean_intercept <- function(eq_list, y_name){
+     if(!is.null(eq_list)){
+          if(!is.list(eq_list)) eq_list <- list(eq_list)
+          eq_list <- lapply(eq_list, function(x) gsub(x = x, pattern = " ", replacement = ""))
+          eq_split <- lapply(eq_list, function(x) stringr::str_split(x, pattern = "~")[[1]])
+          lapply(eq_split, function(x){
+               if(x[1] == y_name){
+                    x[1] <- "intercept"
+               }
+               paste(x, collapse = "~")
+          })
+     }else{
+          NULL
+     }
 }
 
 
