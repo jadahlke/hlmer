@@ -5,8 +5,8 @@
 \title{lmer wrapper to produce HLM7-style output from multi-level equations}
 \usage{
 hlmer2(eq_lvl1, eq_lvl2 = NULL, cluster, conf_level = 0.95,
-  cred_level = 0.95, remove_missing = TRUE, check_lvl1_variance = TRUE,
-  data, ...)
+  cred_level = 0.95, remove_missing = TRUE,
+  check_lvl1_variance = TRUE, data, ...)
 }
 \arguments{
 \item{eq_lvl1}{Regression equation (as a string) for level-1 models. Do not use parentheses in the model. When supplying an interaction between level-1 variables, use either "*" or ":" notation and manually supply the main effects. In the output, all within-level interactions will be indicated by a "_X_" symbol between the variables.}

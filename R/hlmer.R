@@ -287,10 +287,15 @@ hlmer2 <- function(eq_lvl1, eq_lvl2 = NULL, cluster,
 
      if(check_lvl1_variance & !is.null(x_lvl1)){
           eliminate_novariance <- function(x){
-               if(any(zapsmall(apply(x[,x_lvl1], 2, var)) == 0)){
+               vars <- zapsmall(apply(x[,x_lvl1], 2, var))
+               if(any(is.na(vars))){
                     x[0,]
                }else{
-                    x
+                    if(any(vars == 0)){
+                         x[0,]
+                    }else{
+                         x
+                    }
                }
           }
 
@@ -300,7 +305,7 @@ hlmer2 <- function(eq_lvl1, eq_lvl2 = NULL, cluster,
           new_clusters <- unlist(unique(data[,cluster]))
 
           if(length(new_clusters) < length(orig_clusters))
-               warning(length(orig_clusters) - length(new_clusters), " clusters had no variance on one or more variables and have been removed")
+               warning(length(orig_clusters) - length(new_clusters), " clusters had no variance on one or more variables and have been removed", call. = FALSE)
      }
      data[,cluster] <- factor(data[,cluster])
 
